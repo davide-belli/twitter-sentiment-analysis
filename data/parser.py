@@ -8,7 +8,7 @@ def parse(input,output):
             _,_,target,sentence = line.split("\t")
             # targets.append(target)
             # sentences.append(sentence)
-            lines.append(target+"|"+sentence)
+            lines.append(target+"|_|"+sentence)
             print(lines[-1])
     
     with open('./'+output,'w') as f:
