@@ -15,6 +15,6 @@ def parse(input,output):
         for line in lines:
             f.write(line)
             
-parse('source_train.tsv','train.txt')
-parse('source_valid.tsv','valid.txt')
-parse('source_test.tsv','test.txt')
+parse('source_train.tsv','unpad_train.txt')
+parse('source_valid.tsv','unpad_valid.txt')
+parse('source_test.tsv','unpad_test.txt')
