@@ -38,7 +38,7 @@ parser.add_argument('--seed', type=int, default=1111,
                     help='random seed')
 parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
-parser.add_argument('--log-interval', type=int, default=200, metavar='N',
+parser.add_argument('--log-interval', type=int, default=50, metavar='N',
                     help='report interval')
 parser.add_argument('--save', type=str,  default='model.pt',
                     help='path to save the final model')
@@ -57,10 +57,10 @@ if torch.cuda.is_available():
 ###############################################################################
 
 corpus = data.Corpus(args.data)
-print("len",len(corpus.train))
-print(corpus.train[:200])
-print(corpus.train_t[:200])
-input("Press Enter to continue...")
+print("len of train corpus  ",len(corpus.train))
+# print(corpus.train[:20])
+# print(corpus.train_t[:20])
+input("Press Enter to continue with batching...")
 
 # Starting from sequential data, batchify arranges the dataset into columns.
 # For instance, with the alphabet as the sequence and batch size 4, we'd get
@@ -83,13 +83,17 @@ def batchify(data, bsz):
     data = data.view(bsz, -1).t().contiguous()
     if args.cuda:
         data = data.cuda()
+    print("batchified dims ",data.size())
     return data
 
-# eval_batch_size = 10
-args.batch_size=corpus.train_len
-train_data = batchify(corpus.train, corpus.train_len) #args.batch_size)
-val_data = batchify(corpus.valid, corpus.valid_len) #eval_batch_size)
-test_data = batchify(corpus.test, corpus.test_len) #eval_batch_size)
+eval_batch_size = 10
+args.batch_size=20
+args.bptt=corpus.train_len
+print("batch size= ",args.batch_size," sequence size= ",args.bptt," batch number= ",corpus.train.size(0)//corpus.train_len,"train len= ",corpus.train.size(0))
+train_data = batchify(corpus.train, args.batch_size) #args.batch_size)
+val_data = batchify(corpus.valid, eval_batch_size) #eval_batch_size)
+test_data = batchify(corpus.test, eval_batch_size) #eval_batch_size)
+input("Press Enter to continue with training...")
 
 ###############################################################################
 # Build the model
@@ -128,6 +132,7 @@ def get_batch(source, i, evaluation=False):
     seq_len = min(args.bptt, len(source) - 1 - i)
     data = Variable(source[i:i+seq_len], volatile=evaluation)
     target = Variable(source[i+1:i+1+seq_len].view(-1))
+    # print("data batches ", len(data),"batches size ",len(data[0]))
     return data, target
 
 
@@ -136,21 +141,7 @@ def evaluate(data_source):
     model.eval()
     total_loss = 0
     ntokens = len(corpus.dictionary)
-    hidden = model.init_hidden(corpus.test_len) #eval_batch_size)
-    for i in range(0, data_source.size(0) - 1, args.bptt):
-        data, targets = get_batch(data_source, i, evaluation=True)
-        output, hidden = model(data, hidden)
-        output_flat = output.view(-1, ntokens)
-        total_loss += len(data) * criterion(output_flat, targets).data
-        hidden = repackage_hidden(hidden)
-    return total_loss[0] / len(data_source)
-
-def validate(data_source):
-    # Turn on evaluation mode which disables dropout.
-    model.eval()
-    total_loss = 0
-    ntokens = len(corpus.dictionary)
-    hidden = model.init_hidden(corpus.valid_len) #eval_batch_size
+    hidden = model.init_hidden(eval_batch_size) #eval_batch_size)
     for i in range(0, data_source.size(0) - 1, args.bptt):
         data, targets = get_batch(data_source, i, evaluation=True)
         output, hidden = model(data, hidden)
@@ -184,7 +175,7 @@ def train():
 
         total_loss += loss.data
 
-        if batch % args.log_interval == 0 and batch > 0:
+        if batch % args.log_interval == 0: #and batch > 0:
             cur_loss = total_loss[0] / args.log_interval
             elapsed = time.time() - start_time
             print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
@@ -204,7 +195,7 @@ try:
     for epoch in range(1, args.epochs+1):
         epoch_start_time = time.time()
         train()
-        val_loss = validate(val_data)#evaluate(val_data)
+        val_loss = evaluate(val_data)#evaluate(val_data)
         print('-' * 89)
         print('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
                 'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),

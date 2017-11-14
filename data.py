@@ -40,7 +40,8 @@ class Corpus(object):
             tweet_len = -1
             for line in f:
                 target, sentence = line.split("|_|")
-                words = sentence.split() + ['<eos>']
+                # print(len(sentence)," ",sentence)
+                words = sentence.split()
                 tweet_len = len(words)
                 tokens += len(words)
                 for word in words:
@@ -53,11 +54,15 @@ class Corpus(object):
             token = 0
             for line in f:
                 target, sentence = line.split("|_|")
-                words = sentence.split() + ['<eos>'] #eos before padding?
+                words = sentence.split()
                 for word in words:
                     ids[token] = self.dictionary.word2idx[word]
                     targets[token] = targetToFloat(target)
                     token += 1
+    
+        print("tweet len = ",tweet_len)
+        # for i in ids:
+        #     print(self.dictionary.idx2word[i])
         #print(ids)
 
         return ids, targets, tweet_len
