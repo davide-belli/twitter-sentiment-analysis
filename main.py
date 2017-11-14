@@ -38,7 +38,7 @@ parser.add_argument('--seed', type=int, default=1111,
                     help='random seed')
 parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
-parser.add_argument('--log-interval', type=int, default=200, metavar='N',
+parser.add_argument('--log-interval', type=int, default=50, metavar='N',
                     help='report interval')
 parser.add_argument('--save', type=str,  default='model.pt',
                     help='path to save the final model')
@@ -60,7 +60,7 @@ corpus = data.Corpus(args.data)
 print("len",len(corpus.train))
 print(corpus.train[:200])
 print(corpus.train_t[:200])
-input("Press Enter to continue...")
+input("Corpus Imported, Press Enter to continue (batchify)...")
 
 # Starting from sequential data, batchify arranges the dataset into columns.
 # For instance, with the alphabet as the sequence and batch size 4, we'd get
@@ -86,10 +86,20 @@ def batchify(data, bsz):
     return data
 
 # eval_batch_size = 10
-args.batch_size=corpus.train_len
-train_data = batchify(corpus.train, corpus.train_len) #args.batch_size)
-val_data = batchify(corpus.valid, corpus.valid_len) #eval_batch_size)
-test_data = batchify(corpus.test, corpus.test_len) #eval_batch_size)
+# args.bptt = corpus.train_len
+# args.batch_size=args.bptt*10
+test_bptt = corpus.test_len
+test_batch = test_bptt*10
+train_bptt = corpus.train_len
+train_batch = train_bptt
+valid_bptt = corpus.valid_len
+valid_batch = valid_bptt
+
+train_data = batchify(corpus.train, train_batch) #args.batch_size)
+val_data = batchify(corpus.valid, valid_batch) #eval_batch_size)
+test_data = batchify(corpus.test, test_batch) #corpus.test_len) #eval_batch_size)
+
+input("Batch Generated, Press Enter to continue (training)...")
 
 ###############################################################################
 # Build the model
@@ -124,8 +134,26 @@ def repackage_hidden(h):
 # by the batchify function. The chunks are along dimension 0, corresponding
 # to the seq_len dimension in the LSTM.
 
-def get_batch(source, i, evaluation=False):
-    seq_len = min(args.bptt, len(source) - 1 - i)
+# def get_batch(source, i, evaluation=False):
+#     seq_len = min(args.bptt, len(source) - 1 - i)
+#     data = Variable(source[i:i+seq_len], volatile=evaluation)
+#     target = Variable(source[i+1:i+1+seq_len].view(-1))
+#     return data, target
+
+def get_batch_train(source, i, evaluation=False):
+    seq_len = min(train_bptt, len(source) - 1 - i)
+    data = Variable(source[i:i+seq_len], volatile=evaluation)
+    target = Variable(source[i+1:i+1+seq_len].view(-1))
+    return data, target
+
+def get_batch_valid(source, i, evaluation=False):
+    seq_len = min(valid_bptt, len(source) - 1 - i)
+    data = Variable(source[i:i+seq_len], volatile=evaluation)
+    target = Variable(source[i+1:i+1+seq_len].view(-1))
+    return data, target
+
+def get_batch_test(source, i, evaluation=False):
+    seq_len = min(test_bptt, len(source) - 1 - i)
     data = Variable(source[i:i+seq_len], volatile=evaluation)
     target = Variable(source[i+1:i+1+seq_len].view(-1))
     return data, target
@@ -136,9 +164,9 @@ def evaluate(data_source):
     model.eval()
     total_loss = 0
     ntokens = len(corpus.dictionary)
-    hidden = model.init_hidden(corpus.test_len) #eval_batch_size)
+    hidden = model.init_hidden(test_batch) #eval_batch_size)
     for i in range(0, data_source.size(0) - 1, args.bptt):
-        data, targets = get_batch(data_source, i, evaluation=True)
+        data, targets = get_batch_test(data_source, i, evaluation=True)
         output, hidden = model(data, hidden)
         output_flat = output.view(-1, ntokens)
         total_loss += len(data) * criterion(output_flat, targets).data
@@ -150,9 +178,9 @@ def validate(data_source):
     model.eval()
     total_loss = 0
     ntokens = len(corpus.dictionary)
-    hidden = model.init_hidden(corpus.valid_len) #eval_batch_size
+    hidden = model.init_hidden(valid_batch) #eval_batch_size
     for i in range(0, data_source.size(0) - 1, args.bptt):
-        data, targets = get_batch(data_source, i, evaluation=True)
+        data, targets = get_batch_valid(data_source, i, evaluation=True)
         output, hidden = model(data, hidden)
         output_flat = output.view(-1, ntokens)
         total_loss += len(data) * criterion(output_flat, targets).data
@@ -166,9 +194,9 @@ def train():
     total_loss = 0
     start_time = time.time()
     ntokens = len(corpus.dictionary)
-    hidden = model.init_hidden(args.batch_size)
+    hidden = model.init_hidden(train_batch)
     for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
-        data, targets = get_batch(train_data, i)
+        data, targets = get_batch_train(train_data, i)
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
         hidden = repackage_hidden(hidden)
@@ -184,7 +212,7 @@ def train():
 
         total_loss += loss.data
 
-        if batch % args.log_interval == 0 and batch > 0:
+        if batch % args.log_interval == 0: # and batch > 0:
             cur_loss = total_loss[0] / args.log_interval
             elapsed = time.time() - start_time
             print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
@@ -204,7 +232,7 @@ try:
     for epoch in range(1, args.epochs+1):
         epoch_start_time = time.time()
         train()
-        val_loss = validate(val_data)#evaluate(val_data)
+        val_loss = validate(val_data) #evaluate(val_data)
         print('-' * 89)
         print('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
                 'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),

@@ -53,7 +53,7 @@ class Corpus(object):
             token = 0
             for line in f:
                 target, sentence = line.split("|_|")
-                words = sentence.split() + ['<eos>'] #eos before padding?
+                words = sentence.split() #+ ['<eos>'] #eos before padding?
                 for word in words:
                     ids[token] = self.dictionary.word2idx[word]
                     targets[token] = targetToFloat(target)

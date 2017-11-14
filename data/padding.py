@@ -18,8 +18,9 @@ def add_padding(input,output):
     print("a-"+sentences[0][-1])
     for s in range(len(sentences)):
         sentences[s]=sentences[s][:-2]
+        sentences[s]+=" <eos>"
         while len(sentences[s])<max_len:
-            sentences[s]+=" <PAD>"
+            sentences[s]+=" <pad>"
         sentences[s]+="\n"
     with open('./'+output,'w') as f:
         for i in range(len(targets)):
