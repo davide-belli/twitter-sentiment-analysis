@@ -24,9 +24,9 @@ parser.add_argument('--lr', type=float, default=20,
                     help='initial learning rate')
 parser.add_argument('--clip', type=float, default=0.25,
                     help='gradient clipping')
-parser.add_argument('--epochs', type=int, default=5,
+parser.add_argument('--epochs', type=int, default=40,
                     help='upper epoch limit')
-parser.add_argument('--batch_size', type=int, default=1000, metavar='N',
+parser.add_argument('--batch_size', type=int, default=20, metavar='N',
                     help='batch size')
 parser.add_argument('--bptt', type=int, default=35,
                     help='sequence length')
@@ -44,7 +44,6 @@ parser.add_argument('--save', type=str,  default='model.pt',
                     help='path to save the final model')
 args = parser.parse_args()
 
-args.cuda=True
 # Set the random seed manually for reproducibility.
 torch.manual_seed(args.seed)
 if torch.cuda.is_available():
@@ -58,6 +57,10 @@ if torch.cuda.is_available():
 ###############################################################################
 
 corpus = data.Corpus(args.data)
+print("len",len(corpus.train))
+print(corpus.train[:200])
+print(corpus.train_t[:200])
+input("Press Enter to continue...")
 
 # Starting from sequential data, batchify arranges the dataset into columns.
 # For instance, with the alphabet as the sequence and batch size 4, we'd get
@@ -74,7 +77,6 @@ corpus = data.Corpus(args.data)
 def batchify(data, bsz):
     # Work out how cleanly we can divide the dataset into bsz parts.
     nbatch = data.size(0) // bsz
-    print("nbatch",nbatch, bsz)
     # Trim off any extra elements that wouldn't cleanly fit (remainders).
     data = data.narrow(0, 0, nbatch * bsz)
     # Evenly divide the data across the bsz batches.
@@ -83,16 +85,11 @@ def batchify(data, bsz):
         data = data.cuda()
     return data
 
-eval_batch_size = 10
-# train_data = batchify(corpus.train, args.batch_size)
-# val_data = batchify(corpus.valid, eval_batch_size)
-# test_data = batchify(corpus.test, eval_batch_size)
-corpus.train = batchify(corpus.train, args.batch_size)
-corpus.valid = batchify(corpus.valid, eval_batch_size)
-corpus.test = batchify(corpus.test, eval_batch_size)
-corpus.train_t = batchify(corpus.train_t, args.batch_size)
-corpus.valid_t = batchify(corpus.valid_t, eval_batch_size)
-corpus.test_t = batchify(corpus.test_t, eval_batch_size)
+# eval_batch_size = 10
+args.batch_size=corpus.train_len
+train_data = batchify(corpus.train, corpus.train_len) #args.batch_size)
+val_data = batchify(corpus.valid, corpus.valid_len) #eval_batch_size)
+test_data = batchify(corpus.test, corpus.test_len) #eval_batch_size)
 
 ###############################################################################
 # Build the model
@@ -128,37 +125,38 @@ def repackage_hidden(h):
 # to the seq_len dimension in the LSTM.
 
 def get_batch(source, i, evaluation=False):
-    data = Variable(source.train[i][:],volatile=evaluation)
-    
-    # seq_len = min(args.bptt, len(source) - 1 - i)
-    # data = Variable(source[i:i+seq_len], volatile=evaluation)
-    # target = Variable(source[i+1:i+1+seq_len].view(-1))
-    return data#, target
+    seq_len = min(args.bptt, len(source) - 1 - i)
+    data = Variable(source[i:i+seq_len], volatile=evaluation)
+    target = Variable(source[i+1:i+1+seq_len].view(-1))
+    return data, target
 
 
-def evaluate(data_source,data_target):
+def evaluate(data_source):
     # Turn on evaluation mode which disables dropout.
     model.eval()
     total_loss = 0
     ntokens = len(corpus.dictionary)
-    hidden = model.init_hidden(eval_batch_size)
-    
-    for tweet_num in range(len(data_source)):
-        loss=0
-        for word_num in range(len(data_target[tweet_num])):
-            output, hidden = model(data_source[tweet_num][word_num], hidden)
-            loss += criterion(output, corpus.test_t[tweet_num])  # output view?
-        loss /= len(corpus.train[tweet_num])
-        total_loss += loss
+    hidden = model.init_hidden(corpus.test_len) #eval_batch_size)
+    for i in range(0, data_source.size(0) - 1, args.bptt):
+        data, targets = get_batch(data_source, i, evaluation=True)
+        output, hidden = model(data, hidden)
+        output_flat = output.view(-1, ntokens)
+        total_loss += len(data) * criterion(output_flat, targets).data
         hidden = repackage_hidden(hidden)
-        
-    
-    # for i in range(0, data_source.size(0) - 1, args.bptt):
-    #     data, targets = get_batch(data_source, i, evaluation=True)
-    #     output, hidden = model(data, hidden)
-    #     output_flat = output.view(-1, ntokens)
-    #     total_loss += len(data) * criterion(output_flat, targets).data
-    #     hidden = repackage_hidden(hidden)
+    return total_loss[0] / len(data_source)
+
+def validate(data_source):
+    # Turn on evaluation mode which disables dropout.
+    model.eval()
+    total_loss = 0
+    ntokens = len(corpus.dictionary)
+    hidden = model.init_hidden(corpus.valid_len) #eval_batch_size
+    for i in range(0, data_source.size(0) - 1, args.bptt):
+        data, targets = get_batch(data_source, i, evaluation=True)
+        output, hidden = model(data, hidden)
+        output_flat = output.view(-1, ntokens)
+        total_loss += len(data) * criterion(output_flat, targets).data
+        hidden = repackage_hidden(hidden)
     return total_loss[0] / len(data_source)
 
 
@@ -168,65 +166,33 @@ def train():
     total_loss = 0
     start_time = time.time()
     ntokens = len(corpus.dictionary)
-    hidden = model.init_hidden(args.batch_size) #bacthsize 1?
-    for tweet_num in range(len(corpus.train)):
-        data = get_batch(corpus, tweet_num) #targets?
+    hidden = model.init_hidden(args.batch_size)
+    for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
+        data, targets = get_batch(train_data, i)
+        # Starting each batch, we detach the hidden state from how it was previously produced.
+        # If we didn't, the model would try backpropagating all the way to start of the dataset.
         hidden = repackage_hidden(hidden)
         model.zero_grad()
-
-        print("types",type(data),type(hidden))
         output, hidden = model(data, hidden)
-        loss=criterion(output,corpus.test_t[tweet_num]) #output view?
+        loss = criterion(output.view(-1, ntokens), targets)
         loss.backward()
 
+        # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
         torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)
         for p in model.parameters():
             p.data.add_(-lr, p.grad.data)
 
         total_loss += loss.data
-    
-        if tweet_num % args.log_interval == 0 and tweet_num > 0:
+
+        if batch % args.log_interval == 0 and batch > 0:
             cur_loss = total_loss[0] / args.log_interval
             elapsed = time.time() - start_time
             print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
                     'loss {:5.2f} | ppl {:8.2f}'.format(
-                epoch, tweet_num, len(corpus.train) // args.bptt, lr,
+                epoch, batch, len(train_data) // args.bptt, lr,
                 elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
             total_loss = 0
             start_time = time.time()
-    
-    
-    
-    
-    
-    # ntokens = len(corpus.dictionary)
-    # hidden = model.init_hidden(args.batch_size)
-    # for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
-    #     data, targets = get_batch(train_data, i)
-    #     # Starting each batch, we detach the hidden state from how it was previously produced.
-    #     # If we didn't, the model would try backpropagating all the way to start of the dataset.
-    #     hidden = repackage_hidden(hidden)
-    #     model.zero_grad()
-    #     output, hidden = model(data, hidden)
-    #     loss = criterion(output.view(-1, ntokens), targets)
-    #     loss.backward()
-    #
-    #     # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
-    #     torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)
-    #     for p in model.parameters():
-    #         p.data.add_(-lr, p.grad.data)
-    #
-    #     total_loss += loss.data
-    #
-    #     if batch % args.log_interval == 0 and batch > 0:
-    #         cur_loss = total_loss[0] / args.log_interval
-    #         elapsed = time.time() - start_time
-    #         print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
-    #                 'loss {:5.2f} | ppl {:8.2f}'.format(
-    #             epoch, batch, len(train_data) // args.bptt, lr,
-    #             elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
-    #         total_loss = 0
-    #         start_time = time.time()
 
 # Loop over epochs.
 lr = args.lr
@@ -238,7 +204,7 @@ try:
     for epoch in range(1, args.epochs+1):
         epoch_start_time = time.time()
         train()
-        val_loss = evaluate(corpus.valid,corpus.valid_t)
+        val_loss = validate(val_data)#evaluate(val_data)
         print('-' * 89)
         print('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
                 'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
@@ -263,7 +229,7 @@ with open(args.save, 'rb') as f:
     model = torch.load(f)
 
 # Run on test data.
-test_loss = evaluate(corpus.test,corpus.test_test)
+test_loss = evaluate(test_data)
 print('=' * 89)
 print('| End of training | Total time {:5.2f}  |  test loss {:5.2f} | test ppl {:8.2f}'.format(
     end_time-begin_time, test_loss, math.exp(test_loss)))

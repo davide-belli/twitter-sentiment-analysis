@@ -27,10 +27,9 @@ class Dictionary(object):
 class Corpus(object):
     def __init__(self, path):
         self.dictionary = Dictionary()
-        self.train,self.train_t = self.tokenize(os.path.join(path, 'train.txt'))
-        self.valid,self.valid_t = self.tokenize(os.path.join(path, 'valid.txt'))
-        self.test,self.test_t = self.tokenize(os.path.join(path, 'test.txt'))
-        
+        self.train, self.train_t, self.train_len = self.tokenize(os.path.join(path, 'train.txt'))
+        self.valid, self.valid_t, self.valid_len = self.tokenize(os.path.join(path, 'valid.txt'))
+        self.test, self.test_t, self.test_len = self.tokenize(os.path.join(path, 'test.txt'))
 
     def tokenize(self, path):
         """Tokenizes a text file."""
@@ -38,41 +37,27 @@ class Corpus(object):
         # Add words to the dictionary
         with open(path, 'r') as f:
             tokens = 0
-            tweets = 0
-            tweets_len = []
-            max_len=0
+            tweet_len = -1
             for line in f:
-                target,sentence = line.split("|_|")
+                target, sentence = line.split("|_|")
                 words = sentence.split() + ['<eos>']
+                tweet_len = len(words)
                 tokens += len(words)
-                tweets += 1
-                tweets_len.append(len(words))
-                if len(words)>max_len:
-                    max_len=len(words)
                 for word in words:
                     self.dictionary.add_word(word)
 
         # Tokenize file content
         with open(path, 'r') as f:
-            ids = torch.cuda.LongTensor(tweets,max_len).zero_()-1
-            targets = torch.cuda.FloatTensor(tweets,1) #cuda!!!
-            tweet_number=0
+            ids = torch.LongTensor(tokens)
+            targets = torch.FloatTensor(tokens)
+            token = 0
             for line in f:
-                token = 0
-                #ids.append(torch.cuda.LongTensor(tweets_len[tweet_number])) #cuda!!
                 target, sentence = line.split("|_|")
-                words = sentence.split() + ['<eos>']
+                words = sentence.split() + ['<eos>'] #eos before padding?
                 for word in words:
-                    ids[tweet_number][token] = self.dictionary.word2idx[word]
-                    targets[tweet_number][0] = targetToFloat(target)
+                    ids[token] = self.dictionary.word2idx[word]
+                    targets[token] = targetToFloat(target)
                     token += 1
-                tweet_number += 1
+        #print(ids)
 
-        return ids,targets
-
-corpus = Corpus("./data")
-# print("Corpus train ",corpus.train[:5])
-# print("Corpus t target ",corpus.train_t[:5])
-print(corpus.train_t.shape)
-print(corpus.train[0].shape)
-
+        return ids, targets, tweet_len
