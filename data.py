@@ -38,11 +38,13 @@ class Corpus(object):
         with open(path, 'r') as f:
             tokens = 0
             tweet_len = -1
+            tweets_count = 0
             for line in f:
                 target, sentence = line.split("|_|")
                 # print(len(sentence)," ",sentence)
                 words = sentence.split()
                 tweet_len = len(words)
+                tweets_count+=1
                 tokens += len(words)
                 for word in words:
                     self.dictionary.add_word(word)
@@ -51,10 +53,13 @@ class Corpus(object):
         with open(path, 'r') as f:
             ids = torch.LongTensor(tokens)
             targets = torch.FloatTensor(tokens)
+            # targets = torch.FloatTensor(tweets_count)
             token = 0
-            for line in f:
+            for n,line in enumerate(f):
                 target, sentence = line.split("|_|")
                 words = sentence.split()
+                # targets[n]=targetToFloat(target)
+                # print(targets[n])
                 for word in words:
                     ids[token] = self.dictionary.word2idx[word]
                     targets[token] = targetToFloat(target)

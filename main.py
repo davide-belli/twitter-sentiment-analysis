@@ -93,6 +93,9 @@ print("batch size= ",args.batch_size," sequence size= ",args.bptt," batch number
 train_data = batchify(corpus.train, args.batch_size) #args.batch_size)
 val_data = batchify(corpus.valid, eval_batch_size) #eval_batch_size)
 test_data = batchify(corpus.test, eval_batch_size) #eval_batch_size)
+train_data_t = batchify(corpus.train_t, args.batch_size) #args.batch_size)
+val_data_t = batchify(corpus.valid_t, eval_batch_size) #eval_batch_size)
+test_data_t = batchify(corpus.test_t, eval_batch_size) #eval_batch_size)
 input("Press Enter to continue with training...")
 
 ###############################################################################
@@ -100,11 +103,12 @@ input("Press Enter to continue with training...")
 ###############################################################################
 
 ntokens = len(corpus.dictionary)
+print("number of tokens ",ntokens)
 model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied)
 if args.cuda:
     model.cuda()
 
-criterion = nn.CrossEntropyLoss()
+criterion = nn.L1Loss() #nn.CrossEntropyLoss()
 
 ###############################################################################
 # Training code
@@ -128,27 +132,31 @@ def repackage_hidden(h):
 # by the batchify function. The chunks are along dimension 0, corresponding
 # to the seq_len dimension in the LSTM.
 
-def get_batch(source, i, evaluation=False):
+def get_batch(source, targets, i, evaluation=False):
     seq_len = min(args.bptt, len(source) - 1 - i)
     data = Variable(source[i:i+seq_len], volatile=evaluation)
-    target = Variable(source[i+1:i+1+seq_len].view(-1))
+    # print("targets", targets)
+    target = Variable(targets[i:i+seq_len].view(-1))
+    # print("target ", target)
+    # target = Variable(source[i+1:i+1+seq_len].view(-1))
     # print("data batches ", len(data),"batches size ",len(data[0]))
     return data, target
 
 
-def evaluate(data_source):
+def evaluate(data_source, targets):
     # Turn on evaluation mode which disables dropout.
     model.eval()
     total_loss = 0
     ntokens = len(corpus.dictionary)
     hidden = model.init_hidden(eval_batch_size) #eval_batch_size)
     for i in range(0, data_source.size(0) - 1, args.bptt):
-        data, targets = get_batch(data_source, i, evaluation=True)
+        data, targe = get_batch(data_source, targets, i, evaluation=True)
         output, hidden = model(data, hidden)
-        output_flat = output.view(-1, ntokens)
-        total_loss += len(data) * criterion(output_flat, targets).data
+        output_flat = output.view(eval_batch_size, -1)
+        total_loss += len(data) * criterion(output_flat, targe).data   #was output_flat
         hidden = repackage_hidden(hidden)
-    return total_loss[0] / len(data_source)
+        model.zero_grad()
+    return (total_loss[0] / len(data_source))
 
 
 def train():
@@ -159,13 +167,13 @@ def train():
     ntokens = len(corpus.dictionary)
     hidden = model.init_hidden(args.batch_size)
     for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
-        data, targets = get_batch(train_data, i)
+        data, targets = get_batch(train_data, train_data_t, i)
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
         hidden = repackage_hidden(hidden)
         model.zero_grad()
         output, hidden = model(data, hidden)
-        loss = criterion(output.view(-1, ntokens), targets)
+        loss = criterion(output.view(args.batch_size, -1), targets)
         loss.backward()
 
         # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
@@ -175,7 +183,7 @@ def train():
 
         total_loss += loss.data
 
-        if batch % args.log_interval == 0: #and batch > 0:
+        if batch % args.log_interval == 0 and batch > 0:
             cur_loss = total_loss[0] / args.log_interval
             elapsed = time.time() - start_time
             print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
@@ -195,7 +203,7 @@ try:
     for epoch in range(1, args.epochs+1):
         epoch_start_time = time.time()
         train()
-        val_loss = evaluate(val_data)#evaluate(val_data)
+        val_loss = evaluate(val_data, val_data_t)#evaluate(val_data)
         print('-' * 89)
         print('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
                 'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
@@ -208,7 +216,7 @@ try:
             best_val_loss = val_loss
         else:
             # Anneal the learning rate if no improvement has been seen in the validation dataset.
-            lr /= 4.0
+            lr /= 2.0
 except KeyboardInterrupt:
     print('-' * 89)
     print('Exiting from training early')
@@ -220,7 +228,7 @@ with open(args.save, 'rb') as f:
     model = torch.load(f)
 
 # Run on test data.
-test_loss = evaluate(test_data)
+test_loss = evaluate(test_data, test_data_t)
 print('=' * 89)
 print('| End of training | Total time {:5.2f}  |  test loss {:5.2f} | test ppl {:8.2f}'.format(
     end_time-begin_time, test_loss, math.exp(test_loss)))
