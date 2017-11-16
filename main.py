@@ -30,7 +30,7 @@ parser.add_argument('--batch_size', type=int, default=20, metavar='N',
                     help='batch size')
 parser.add_argument('--bptt', type=int, default=35,
                     help='sequence length')
-parser.add_argument('--dropout', type=float, default=0.2,
+parser.add_argument('--dropout', type=float, default=0.1,
                     help='dropout applied to layers (0 = no dropout)')
 parser.add_argument('--tied', action='store_true',
                     help='tie the word embedding and softmax weights')
@@ -108,7 +108,8 @@ model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers
 if args.cuda:
     model.cuda()
 
-criterion = nn.L1Loss() #nn.CrossEntropyLoss()
+criterion1 = nn.MSELoss() #nn.CrossEntropyLoss()
+criterion2 = nn.L1Loss() #nn.CrossEntropyLoss()
 
 ###############################################################################
 # Training code
@@ -147,13 +148,12 @@ def evaluate(data_source, targets):
     # Turn on evaluation mode which disables dropout.
     model.eval()
     total_loss = 0
-    ntokens = len(corpus.dictionary)
     hidden = model.init_hidden(eval_batch_size) #eval_batch_size)
     for i in range(0, data_source.size(0) - 1, args.bptt):
-        data, targe = get_batch(data_source, targets, i, evaluation=True)
+        data, targ = get_batch(data_source, targets, i, evaluation=True)
         output, hidden = model(data, hidden)
         output_flat = output.view(eval_batch_size, -1)
-        total_loss += len(data) * criterion(output_flat, targe).data   #was output_flat
+        total_loss += len(data) * (criterion1(output_flat, targ).data + criterion2(output_flat, targ).data)   #was output_flat
         hidden = repackage_hidden(hidden)
         model.zero_grad()
     return (total_loss[0] / len(data_source))
@@ -164,7 +164,6 @@ def train():
     model.train()
     total_loss = 0
     start_time = time.time()
-    ntokens = len(corpus.dictionary)
     hidden = model.init_hidden(args.batch_size)
     for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
         data, targets = get_batch(train_data, train_data_t, i)
@@ -173,7 +172,7 @@ def train():
         hidden = repackage_hidden(hidden)
         model.zero_grad()
         output, hidden = model(data, hidden)
-        loss = criterion(output.view(args.batch_size, -1), targets)
+        loss = criterion1(output.view(args.batch_size, -1), targets)+ criterion2(output.view(args.batch_size, -1), targets)
         loss.backward()
 
         # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
@@ -216,7 +215,7 @@ try:
             best_val_loss = val_loss
         else:
             # Anneal the learning rate if no improvement has been seen in the validation dataset.
-            lr /= 2.0
+            lr /= 1.5
 except KeyboardInterrupt:
     print('-' * 89)
     print('Exiting from training early')
@@ -233,3 +232,4 @@ print('=' * 89)
 print('| End of training | Total time {:5.2f}  |  test loss {:5.2f} | test ppl {:8.2f}'.format(
     end_time-begin_time, test_loss, math.exp(test_loss)))
 print('=' * 89)
+

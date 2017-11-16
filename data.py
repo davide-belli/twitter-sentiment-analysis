@@ -71,3 +71,23 @@ class Corpus(object):
         #print(ids)
 
         return ids, targets, tweet_len
+
+    def tokenize_sentence(self, tweet):
+        """Tokenizes a string tweet."""
+    
+        words = tweet.split()
+        tweet_len = len(words)
+        ids = torch.LongTensor(tweet_len)
+
+        token = 0
+        for word in words:
+            ids[token] = self.dictionary.word2idx[word]
+            token += 1
+
+        print("tweet  = ", words)
+        print("w2i = ",ids)
+        # for i in ids:
+        #     print(self.dictionary.idx2word[i])
+        # print(ids)
+    
+        return ids,  len(ids)
