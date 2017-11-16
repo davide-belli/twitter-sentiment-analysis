@@ -4,6 +4,7 @@ import time
 import math
 import torch
 import torch.nn as nn
+import torch.optim as optim
 from torch.autograd import Variable
 
 import data
@@ -108,8 +109,9 @@ model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers
 if args.cuda:
     model.cuda()
 
-criterion1 = nn.MSELoss() #nn.CrossEntropyLoss()
-criterion2 = nn.L1Loss() #nn.CrossEntropyLoss()
+criterionMSE = nn.MSELoss() #nn.CrossEntropyLoss()
+criterionL1 = nn.L1Loss() #nn.CrossEntropyLoss()
+lambdaL1 = 0.2
 
 ###############################################################################
 # Training code
@@ -153,7 +155,7 @@ def evaluate(data_source, targets):
         data, targ = get_batch(data_source, targets, i, evaluation=True)
         output, hidden = model(data, hidden)
         output_flat = output.view(eval_batch_size, -1)
-        total_loss += len(data) * (criterion1(output_flat, targ).data + criterion2(output_flat, targ).data)   #was output_flat
+        total_loss += len(data) * (criterionMSE(output_flat, targ).data + lambdaL1*criterionL1(output_flat, targ).data)   #was output_flat
         hidden = repackage_hidden(hidden)
         model.zero_grad()
     return (total_loss[0] / len(data_source))
@@ -166,26 +168,28 @@ def train():
     start_time = time.time()
     hidden = model.init_hidden(args.batch_size)
     for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
+        optimizer.zero_grad()
         data, targets = get_batch(train_data, train_data_t, i)
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
         hidden = repackage_hidden(hidden)
         model.zero_grad()
         output, hidden = model(data, hidden)
-        loss = criterion1(output.view(args.batch_size, -1), targets)+ criterion2(output.view(args.batch_size, -1), targets)
+        loss = criterionMSE(output.view(args.batch_size, -1), targets)+ lambdaL1*criterionL1(output.view(args.batch_size, -1), targets)
         loss.backward()
 
         # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
         torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)
-        for p in model.parameters():
-            p.data.add_(-lr, p.grad.data)
+        optimizer.step()
+        # for p in model.parameters():
+        #     p.data.add_(-lr, p.grad.data)
 
         total_loss += loss.data
 
         if batch % args.log_interval == 0 and batch > 0:
             cur_loss = total_loss[0] / args.log_interval
             elapsed = time.time() - start_time
-            print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
+            print('| epoch {:3d} | {:5d}/{:5d} batches | lr  is constant{:02.2f} | ms/batch {:5.2f} | '
                     'loss {:5.2f} | ppl {:8.2f}'.format(
                 epoch, batch, len(train_data) // args.bptt, lr,
                 elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
@@ -195,6 +199,7 @@ def train():
 # Loop over epochs.
 lr = args.lr
 best_val_loss = None
+optimizer = optim.Adam(model.parameters(), lr=0.01)
 
 # At any point you can hit Ctrl + C to break out of training early.
 try:
@@ -213,9 +218,9 @@ try:
             with open(args.save, 'wb') as f:
                 torch.save(model, f)
             best_val_loss = val_loss
-        else:
-            # Anneal the learning rate if no improvement has been seen in the validation dataset.
-            lr /= 1.5
+        # else:
+        #     # Anneal the learning rate if no improvement has been seen in the validation dataset.
+        #     lr /= 1.5
 except KeyboardInterrupt:
     print('-' * 89)
     print('Exiting from training early')
