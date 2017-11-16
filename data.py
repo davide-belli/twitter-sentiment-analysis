@@ -3,11 +3,11 @@ import torch
 
 def targetToFloat(target):
     if target == "positive":
-        return 1.0
+        return 1.0, 2
     elif target == "negative":
-        return -1.0
+        return -1.0,  0
     else:
-        return 0.0
+        return 0.0, 1
     
 class Dictionary(object):
     def __init__(self):
@@ -51,19 +51,28 @@ class Corpus(object):
 
         # Tokenize file content
         with open(path, 'r') as f:
-            ids = torch.LongTensor(tokens)
-            targets = torch.FloatTensor(tokens)
+            MAX = int(tweets_count * tweet_len // 8.0)
+            ids = torch.LongTensor(MAX*3)
+            targets = torch.FloatTensor(MAX*3)
             # targets = torch.FloatTensor(tweets_count)
             token = 0
+            sentiments = [0,0,0]
+            print("MAX ", MAX, tweets_count)
             for n,line in enumerate(f):
                 target, sentence = line.split("|_|")
                 words = sentence.split()
                 # targets[n]=targetToFloat(target)
                 # print(targets[n])
                 for word in words:
-                    ids[token] = self.dictionary.word2idx[word]
-                    targets[token] = targetToFloat(target)
-                    token += 1
+                    this_target, this_sentiment = targetToFloat(target)
+                    # print(sentiments[this_sentiment],"<",MAX*len(words))
+                    if sentiments[this_sentiment] < MAX:
+                        ids[token] = self.dictionary.word2idx[word]
+                        targets[token] = this_target
+                        sentiments[this_sentiment] += 1
+                        token += 1
+                    
+            print("Dataset sentiments: ", sentiments)
     
         print("tweet len = ",tweet_len)
         # for i in ids:

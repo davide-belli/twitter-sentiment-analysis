@@ -10,7 +10,7 @@ parser.add_argument('--data', type=str, default='./data',
                     help='location of the data corpus')
 parser.add_argument('--bptt', type=int, default=35,
                     help='sequence length')
-parser.add_argument('--tweet', type=str, default='I want to go to the beach with you tomorrow! <eos>',
+parser.add_argument('--tweet', type=str, default='I want to go to the beach with you tomorrow! :) <eos>',
                     help='tweet to predict the sentiment of')
 parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
