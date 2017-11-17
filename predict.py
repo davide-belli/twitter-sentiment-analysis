@@ -17,7 +17,6 @@ parser.add_argument('--cuda', action='store_true',
 args = parser.parse_args()
 
 corpus = data.Corpus(args.data)
-input("Press Enter to continue with batching...")
 
 def repackage_hidden(h):
     """Wraps hidden states in new Variables, to detach them from their history."""
@@ -35,7 +34,6 @@ def batchify(data, bsz):
     data = data.view(bsz, -1).t().contiguous()
     if args.cuda:
         data = data.cuda()
-    print("batchified dims ",data.size())
     return data
 
 pred_batch_size=1
@@ -68,5 +66,5 @@ def predict(data_source):
         model.zero_grad()
     return output_flat
 
-sentiment = predict(tweet)
+sentiment = predict(tweet).view(-1,3)
 print("sentiment: ",sentiment)

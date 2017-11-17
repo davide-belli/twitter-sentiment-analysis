@@ -17,7 +17,9 @@ class RNNModel(nn.Module):
                 raise ValueError( """An invalid option for `--model` was supplied,
                                  options are ['LSTM', 'GRU', 'RNN_TANH' or 'RNN_RELU']""")
             self.rnn = nn.RNN(ninp, nhid, nlayers, nonlinearity=nonlinearity, dropout=dropout)
-        self.decoder = nn.Linear(nhid, 1)
+        self.decoder = nn.Linear(nhid, 3)
+        self.softmax = nn.Softmax()
+        # self.decoder = nn.Linear(nhid, 1)
 
         # Optionally tie weights as in:
         # "Using the Output Embedding to Improve Language Models" (Press & Wolf 2016)
@@ -51,7 +53,10 @@ class RNNModel(nn.Module):
         # print("output ",output)
         output = self.drop(output)
         decoded = self.decoder(output.view(output.size(0)*output.size(1), output.size(2)))
-        result = decoded.view(output.size(0), output.size(1), decoded.size(1))
+        result_unscaled = self.softmax(decoded)
+        result = result_unscaled.view(output.size(0), output.size(1), decoded.size(1))
+        # print (result)
+        # scaled = self.softmax(result)
         # print("decoded", decoded)
         # print("result ", result)
         return result, hidden

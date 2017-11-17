@@ -3,11 +3,11 @@ import torch
 
 def targetToFloat(target):
     if target == "positive":
-        return 1.0, 2
+        return [0.0, 0.0, 1.0], 2 #[0.0, 0.0, 1.0], 2
     elif target == "negative":
-        return -1.0,  0
+        return [1.0, 0.0, 0.0],  0 #[1.0, 0.0, 0.0],  0
     else:
-        return 0.0, 1
+        return [0.0, 1.0, 0.0], 1 #[0.0, 1.0, 0.0], 1
     
 class Dictionary(object):
     def __init__(self):
@@ -53,11 +53,11 @@ class Corpus(object):
         with open(path, 'r') as f:
             MAX = int(tweets_count * tweet_len // 8.0)
             ids = torch.LongTensor(MAX*3)
-            targets = torch.FloatTensor(MAX*3)
+            targets = torch.FloatTensor(MAX*3,3) #Float for MSE, Long for CrossEntropy
             # targets = torch.FloatTensor(tweets_count)
             token = 0
             sentiments = [0,0,0]
-            print("MAX ", MAX, tweets_count)
+            # print("MAX ", MAX, tweets_count)
             for n,line in enumerate(f):
                 target, sentence = line.split("|_|")
                 words = sentence.split()
@@ -68,7 +68,9 @@ class Corpus(object):
                     # print(sentiments[this_sentiment],"<",MAX*len(words))
                     if sentiments[this_sentiment] < MAX:
                         ids[token] = self.dictionary.word2idx[word]
-                        targets[token] = this_target
+                        for i in range(len(targets[token])):
+                            targets[token][i] = this_target[i]
+                            # print("targets ", targets[token])
                         sentiments[this_sentiment] += 1
                         token += 1
                     
@@ -93,8 +95,9 @@ class Corpus(object):
             ids[token] = self.dictionary.word2idx[word]
             token += 1
 
-        print("tweet  = ", words)
-        print("w2i = ",ids)
+        print("\ntweet  = ", words)
+        print("\ntweet  = ", words)
+        # print("w2i = ",ids)
         # for i in ids:
         #     print(self.dictionary.idx2word[i])
         # print(ids)
