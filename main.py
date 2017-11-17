@@ -78,27 +78,25 @@ input("Press Enter to continue with batching...")
 def batchify(data, bsz):
     # Work out how cleanly we can divide the dataset into bsz parts.
     nbatch = data.size(0) // bsz
-    print("nbatch",nbatch)
     # Trim off any extra elements that wouldn't cleanly fit (remainders).
     data = data.narrow(0, 0, nbatch * bsz)
     # Evenly divide the data across the bsz batches.
     data = data.view(bsz, -1).t().contiguous()
     if args.cuda:
         data = data.cuda()
-    print("batchified dims ",data.size())
+    print("batchified dims ",data.size(), " num batch ",nbatch)
     return data
 
 def batchify_target(data, bsz):
     # Work out how cleanly we can divide the dataset into bsz parts.
     nbatch = data.size(0) // bsz
-    print("nbatch",nbatch)
     # Trim off any extra elements that wouldn't cleanly fit (remainders).
     data = data.narrow(0, 0, nbatch * bsz)
     # Evenly divide the data across the bsz batches.
     data = data.view(bsz, -1, 3).transpose(0,1).contiguous()
     if args.cuda:
         data = data.cuda()
-    print("batchified dims ",data.size())
+    print("batchified dims ",data.size(), " num batch ",nbatch)
     return data
 
 eval_batch_size = 10
@@ -154,6 +152,7 @@ def repackage_hidden(h):
 
 def get_batch(source, targets, i, evaluation=False):
     seq_len = min(args.bptt, len(source) - 1 - i)
+    # print("seq_len",args.bptt," ", len(source )-1-i)
     data = Variable(source[i:i+seq_len], volatile=evaluation)
     # print("targets", targets[i:i+seq_len,:])
     # print("source ", source[i:i + seq_len])
@@ -170,6 +169,8 @@ def evaluate(data_source, targets):
     total_loss = 0
     hidden = model.init_hidden(eval_batch_size) #eval_batch_size)
     for i in range(0, data_source.size(0) - 1, args.bptt):
+        if len(data_source)-1-i< args.bptt:
+            continue
         data, targ = get_batch(data_source, targets, i, evaluation=True)
         output, hidden = model(data, hidden)
         output_flat = output.view(eval_batch_size, -1)
@@ -187,6 +188,8 @@ def train():
     hidden = model.init_hidden(args.batch_size)
     for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
         optimizer.zero_grad()
+        if len(train_data)-1-i< args.bptt:
+            continue
         data, targets = get_batch(train_data, train_data_t, i)
         # print("targets batch ", len(targets), targets)
         # Starting each batch, we detach the hidden state from how it was previously produced.
@@ -194,6 +197,7 @@ def train():
         hidden = repackage_hidden(hidden)
         model.zero_grad()
         output, hidden = model(data, hidden)
+        # print("output, ",output)
         loss = criterionMSE(output, targets) + lambdaL1*criterionL1(output.view(args.batch_size, -1), targets)
         loss.backward()
 
