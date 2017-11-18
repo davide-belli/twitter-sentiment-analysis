@@ -6,6 +6,9 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
+import numpy as np
+import matplotlib.pyplot as plt
+import os
 
 import data
 import model
@@ -43,6 +46,8 @@ parser.add_argument('--log-interval', type=int, default=30, metavar='N',
                     help='report interval')
 parser.add_argument('--save', type=str,  default='model.pt',
                     help='path to save the final model')
+parser.add_argument('--plot', action='store_true',
+                    help='plot confusion matrix')
 args = parser.parse_args()
 
 # Set the random seed manually for reproducibility.
@@ -58,7 +63,7 @@ if torch.cuda.is_available():
 ###############################################################################
 
 corpus = data.Corpus(args.data)
-print("len of train corpus  ",len(corpus.train))
+# print("len of train corpus  ",len(corpus.train))
 # print(corpus.train[:20])
 # print(corpus.train_t[:20])
 input("Press Enter to continue with batching...")
@@ -96,13 +101,13 @@ def batchify_target(data, bsz):
     data = data.view(bsz, -1, 3).transpose(0,1).contiguous()
     if args.cuda:
         data = data.cuda()
-    print("batchified dims ",data.size(), " num batch ",nbatch)
+    # print("batchified dims ",data.size(), " num batch ",nbatch)
     return data
 
 eval_batch_size = 10
 args.batch_size=20
-args.bptt=corpus.train_len
-print("batch size= ",args.batch_size," sequence size= ",args.bptt," batch number= ",corpus.train.size(0)//corpus.train_len,"train len= ",corpus.train.size(0))
+args.bptt=corpus.tweet_len
+print("batch size= ",args.batch_size," sequence size= ",args.bptt," batch number= ",corpus.train.size(0)//corpus.tweet_len,"train len= ",corpus.train.size(0))
 # print("corpus ",corpus.train_t)
 train_data = batchify(corpus.train, args.batch_size) #args.batch_size)
 val_data = batchify(corpus.valid, eval_batch_size) #eval_batch_size)
@@ -112,7 +117,14 @@ val_data_t = batchify_target(corpus.valid_t, eval_batch_size) #eval_batch_size)
 test_data_t = batchify_target(corpus.test_t, eval_batch_size) #eval_batch_size)
 # print("batchified train ",train_data)
 # print("batchified ",train_data_t)
+# print("batchified valid ",val_data)
+# print("batchified ",val_data_t)
+# print("batchified test ",test_data)
+# print("batchified ",test_data_t)
 input("Press Enter to continue with training...")
+train_confusion=np.reshape([[0 for i in range(3)]for j in range(3)],(3,3))
+valid_confusion=np.reshape([[0 for i in range(3)]for j in range(3)],(3,3))
+test_confusion=np.reshape([[0 for i in range(3)]for j in range(3)],(3,3))
 
 ###############################################################################
 # Build the model
@@ -124,7 +136,7 @@ model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers
 if args.cuda:
     model.cuda()
 
-criterionMSE = nn.BCELoss()
+criterionBCE = nn.BCELoss()
 criterionL1 = nn.L1Loss() #nn.CrossEntropyLoss()
 lambdaL1 = 0.5
 
@@ -138,6 +150,55 @@ def repackage_hidden(h):
         return Variable(h.data)
     else:
         return tuple(repackage_hidden(v) for v in h)
+
+def confusion_matrix(output, target, which_matrix):
+    _,y=torch.max(output.view(-1,3),1)
+    _,t=torch.max(target.view(-1,3),1)
+    t = t.data.cpu().numpy()
+    y = y.data.cpu().numpy()
+    # print(t,y)
+    assert len(t)==len(y), "target and output have different sizes"
+    for i in range(len(t)):
+        if which_matrix == "training":
+            train_confusion[t[i],y[i]] += 1
+        elif which_matrix == "validation":
+            valid_confusion[t[i],y[i]] += 1
+        else:
+            test_confusion[t[i],y[i]] += 1
+    return
+
+def plotter(which_matrix,epoch=0):
+    if which_matrix == "training":
+        conf_arr=train_confusion
+    elif which_matrix == "validation":
+        conf_arr=valid_confusion
+    else:
+        conf_arr=test_confusion
+    fig = plt.figure()
+    plt.clf()
+    ax = fig.add_subplot(111)
+    ax.set_aspect(1)
+    res = ax.imshow(np.array(conf_arr), cmap=plt.cm.jet,
+                    interpolation='nearest')
+
+    width, height = conf_arr.shape
+
+    for x in range(width):
+        for y in range(height):
+            ax.annotate(str(conf_arr[x][y]), xy=(y, x),
+                        horizontalalignment='center',
+                        verticalalignment='center')
+
+    cb = fig.colorbar(res)
+    alphabet = ["negative","neutral","positive"]
+    plt.xticks(range(width), alphabet[:width])
+    plt.yticks(range(height), alphabet[:height])
+    path = "./confusion_matrixes/"+str(exec_time)+"/"
+    if not os.path.exists(path):
+        os.makedirs(path)
+    plt.savefig(path+"confusion_matrix_"+which_matrix+"_"+str(epoch)+'.png', format='png')
+    plt.close()
+    return
 
 
 # get_batch subdivides the source data into chunks of length args.bptt.
@@ -163,42 +224,62 @@ def get_batch(source, targets, i, evaluation=False):
     return data, target
 
 
-def evaluate(data_source, targets):
+def evaluate(data_source, targets, test=False):
     # Turn on evaluation mode which disables dropout.
     model.eval()
     total_loss = 0
+    
     hidden = model.init_hidden(eval_batch_size) #eval_batch_size)
+
     for i in range(0, data_source.size(0) - 1, args.bptt):
-        if len(data_source)-1-i< args.bptt:
-            continue
+        # if len(data_source)-1-i< args.bptt:
+        #     continue
         data, targ = get_batch(data_source, targets, i, evaluation=True)
         output, hidden = model(data, hidden)
+        # print("output",output)
+        # print("data",data)
         output_flat = output.view(eval_batch_size, -1)
-        total_loss += len(data) * (criterionMSE(output_flat.view(-1), targ.view(-1)).data + lambdaL1*criterionL1(output_flat, targ).data)   #was output_flat
+        BCE = criterionBCE(output_flat.view(-1), targ.view(-1)).data
+        L1 = criterionL1(output_flat, targ).data
+        total_loss += BCE + lambdaL1*L1
         hidden = repackage_hidden(hidden)
         model.zero_grad()
-    return (total_loss[0] / len(data_source))
+        
+        if args.plot:
+            if test:
+                confusion_matrix(output, targ, "test")
+                # print(output)
+            else:
+                confusion_matrix(output, targ, "validation")
+                
+    # print("totalloss", total_loss)
+    # print(" len data ",len(data))
+                
+    return (total_loss[0]/ len(data_source))
 
 
 def train():
     # Turn on training mode which enables dropout.
     model.train()
     total_loss = 0
+    total_BCE = 0
+    total_L1 = 0
     start_time = time.time()
     hidden = model.init_hidden(args.batch_size)
     for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
+        # print("training...........")
         optimizer.zero_grad()
-        if len(train_data)-1-i< args.bptt:
-            continue
         data, targets = get_batch(train_data, train_data_t, i)
-        # print("targets batch ", len(targets), targets)
+        # print("targets batch ", targets)
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
         hidden = repackage_hidden(hidden)
         model.zero_grad()
         output, hidden = model(data, hidden)
         # print("output, ",output)
-        loss = criterionMSE(output, targets) + lambdaL1*criterionL1(output.view(args.batch_size, -1), targets)
+        BCE = criterionBCE(output, targets)
+        L1 = criterionL1(output.view(args.batch_size, -1), targets)
+        loss = BCE + lambdaL1*L1
         loss.backward()
 
         # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
@@ -208,24 +289,35 @@ def train():
         #     p.data.add_(-lr, p.grad.data)
 
         total_loss += loss.data
+        total_BCE += BCE.data
+        total_L1 += L1.data
 
         if batch % args.log_interval == 0 and batch > 0:
             cur_loss = total_loss[0] / args.log_interval
+            cur_BCE = total_BCE[0] / args.log_interval
+            cur_L1 = total_L1[0] / args.log_interval
             elapsed = time.time() - start_time
-            print('| epoch {:3d} | {:5d}/{:5d} batches | ms/batch {:5.2f} | '
-                    'loss {:5.2f} | ppl {:8.2f}'.format(
+            print('| epoch {:2d}| {:5d}/{:5d}| ms/batch {:4.2f}| '
+                    'loss {:5.2f}| BCE {:4.2f}| L1 {:4.2f} '.format(
                 epoch, batch, len(train_data) // args.bptt,
-                elapsed * 1000 / args.log_interval, cur_loss, math.exp(cur_loss)))
+                elapsed * 1000 / args.log_interval, cur_loss, cur_BCE, cur_L1))
             total_loss = 0
+            total_BCE = 0
+            total_L1 = 0
             start_time = time.time()
+            
+        if args.plot:
+            confusion_matrix(output, targets, "training")
+
 
 # Loop over epochs.
 lr = args.lr
 best_val_loss = None
-optimizer = optim.Adam(model.parameters(), lr=0.01)
+optimizer = optim.Adagrad(model.parameters(), lr=0.01)
 
 # At any point you can hit Ctrl + C to break out of training early.
 try:
+    exec_time = time.time()
     begin_time = time.time()
     for epoch in range(1, args.epochs+1):
         epoch_start_time = time.time()
@@ -244,6 +336,9 @@ try:
         # else:
         #     # Anneal the learning rate if no improvement has been seen in the validation dataset.
         #     lr /= 1.5
+        if args.plot:
+            plotter("training",epoch)
+            plotter("validation",epoch)
 except KeyboardInterrupt:
     print('-' * 89)
     print('Exiting from training early')
@@ -255,9 +350,11 @@ with open(args.save, 'rb') as f:
     model = torch.load(f)
 
 # Run on test data.
-test_loss = evaluate(test_data, test_data_t)
+test_loss = evaluate(test_data, test_data_t, test=True)
 print('=' * 89)
 print('| End of training | Total time {:5.2f}  |  test loss {:5.2f} | test ppl {:8.2f}'.format(
     end_time-begin_time, test_loss, math.exp(test_loss)))
 print('=' * 89)
-
+# test_confusion[0,1]+=50000
+if args.plot:
+    plotter("test")
