@@ -116,11 +116,11 @@ train_data_t = batchify_target(corpus.train_t, args.batch_size) #args.batch_size
 val_data_t = batchify_target(corpus.valid_t, eval_batch_size) #eval_batch_size)
 test_data_t = batchify_target(corpus.test_t, eval_batch_size) #eval_batch_size)
 # print("batchified train ",train_data)
-# print("batchified ",train_data_t)
+print("batchified ",train_data_t[-1])
 # print("batchified valid ",val_data)
-# print("batchified ",val_data_t)
+print("batchified ",val_data_t[-1])
 # print("batchified test ",test_data)
-# print("batchified ",test_data_t)
+print("batchified ",test_data_t[-1])
 input("Press Enter to continue with training...")
 train_confusion=np.reshape([[0 for i in range(3)]for j in range(3)],(3,3))
 valid_confusion=np.reshape([[0 for i in range(3)]for j in range(3)],(3,3))
@@ -230,6 +230,8 @@ def evaluate(data_source, targets, test=False):
     total_loss = 0
     
     hidden = model.init_hidden(eval_batch_size) #eval_batch_size)
+
+    print("size",data_source.size(0)," ",args.bptt)
 
     for i in range(0, data_source.size(0) - 1, args.bptt):
         # if len(data_source)-1-i< args.bptt:
