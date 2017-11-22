@@ -59,6 +59,8 @@ if torch.cuda.is_available():
         print("WARNING: You have a CUDA device, so you should probably run with --cuda")
     else:
         torch.cuda.manual_seed(args.seed)
+        
+LEARNING_RATE = 0.005
 
 ###############################################################################
 # Load data
@@ -358,7 +360,7 @@ best_val_loss = None
 best_epoch = -1
 best_recall_epoch = -1
 best_fitness = 0
-optimizer = optim.Adagrad(model.parameters(), lr=0.01)
+optimizer = optim.Adagrad(model.parameters(), lr=LEARNING_RATE)
 
 # At any point you can hit Ctrl + C to break out of training early.
 try:
