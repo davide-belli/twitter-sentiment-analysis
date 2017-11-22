@@ -4,7 +4,13 @@ import numpy as np
 import random
 
 def targetToFloat(target):
-    if target == "positive":
+    # if target == "positive":
+    #     return [0, 0, 1], 2 #[0.0, 0.0, 1.0], 2
+    # elif target == "negative":
+    #     return [1, 0, 0],  0 #[1.0, 0.0, 0.0],  0
+    # else:
+    #     return [0, 1, 0], 1 #[0.0, 1.0, 0.0], 1
+    if target == "positive":                              #Use Floats for BCELoss, Longs for CrossEntropyLoss
         return [0.0, 0.0, 1.0], 2 #[0.0, 0.0, 1.0], 2
     elif target == "negative":
         return [1.0, 0.0, 0.0],  0 #[1.0, 0.0, 0.0],  0
@@ -38,6 +44,9 @@ class Corpus(object):
         """Tokenizes a text file."""
         assert os.path.exists(path)
         # Add words to the dictionary
+        
+        random.seed(1234)
+        
         positive=[]
         neutral=[]
         negative=[]

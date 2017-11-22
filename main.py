@@ -46,6 +46,8 @@ parser.add_argument('--log-interval', type=int, default=30, metavar='N',
                     help='report interval')
 parser.add_argument('--save', type=str,  default='model.pt',
                     help='path to save the final model')
+parser.add_argument('--recallsave', type=str,  default='model_recall.pt',
+                    help='path to save the final model')
 parser.add_argument('--plot', action='store_true',
                     help='plot confusion matrix')
 args = parser.parse_args()
@@ -107,7 +109,7 @@ def batchify_target(data, bsz):
 eval_batch_size = 10
 args.batch_size=20
 args.bptt=corpus.tweet_len
-print("batch size= ",args.batch_size," sequence size= ",args.bptt," batch number= ",corpus.train.size(0)//corpus.tweet_len,"train len= ",corpus.train.size(0))
+print("batch size= ",args.batch_size," sequence size= ",args.bptt," tweets number= ",corpus.train.size(0)//corpus.tweet_len,"train len= ",corpus.train.size(0))
 # print("corpus ",corpus.train_t)
 train_data = batchify(corpus.train, args.batch_size) #args.batch_size)
 val_data = batchify(corpus.valid, eval_batch_size) #eval_batch_size)
@@ -136,6 +138,7 @@ model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers
 if args.cuda:
     model.cuda()
 
+# criterionBCE = nn.NLLLoss()
 criterionBCE = nn.BCELoss()
 criterionL1 = nn.L1Loss() #nn.CrossEntropyLoss()
 lambdaL1 = 0.5
@@ -200,6 +203,23 @@ def plotter(which_matrix,epoch=0):
     plt.close()
     return
 
+def recallFitness(which_matrix):
+    if which_matrix == "training":
+        conf_arr=train_confusion
+    elif which_matrix == "validation":
+        conf_arr=valid_confusion
+        print(conf_arr)
+    else:
+        conf_arr=test_confusion
+        print(conf_arr)
+    recall=np.zeros(3)
+    for i in range(len(conf_arr[0])):
+        recall[i] = conf_arr[i, i]/(np.sum(conf_arr[i]))
+    average_recall = np.sum(recall)/3
+    if which_matrix is not "training":
+        print(average_recall)
+    return average_recall
+
 
 # get_batch subdivides the source data into chunks of length args.bptt.
 # If source is equal to the example output of the batchify function, with
@@ -231,7 +251,7 @@ def evaluate(data_source, targets, test=False):
     
     hidden = model.init_hidden(eval_batch_size) #eval_batch_size)
 
-    print("size",data_source.size(0)," ",args.bptt)
+    # print("size",data_source.size(0)," ",args.bptt)
 
     for i in range(0, data_source.size(0) - 1, args.bptt):
         # if len(data_source)-1-i< args.bptt:
@@ -241,12 +261,24 @@ def evaluate(data_source, targets, test=False):
         # print("output",output)
         # print("data",data)
         output_flat = output.view(eval_batch_size, -1)
+        # output_flat = output[-1]  # .view(eval_batch_size, -1)
+        correct_target = targ[-1]
+        
+        # BCE = criterionBCE(output_flat.view(-1), correct_target.view(-1)).data
+        # L1 = criterionL1(output_flat, correct_target).data
+        #
         BCE = criterionBCE(output_flat.view(-1), targ.view(-1)).data
         L1 = criterionL1(output_flat, targ).data
         total_loss += BCE + lambdaL1*L1
         hidden = repackage_hidden(hidden)
         model.zero_grad()
         
+        # if args.plot:
+        #     if test:
+        #         confusion_matrix(output_flat, correct_target, "test")
+        #         # print(output)
+        #     else:
+        #         confusion_matrix(output_flat, correct_target, "validation")
         if args.plot:
             if test:
                 confusion_matrix(output, targ, "test")
@@ -269,7 +301,7 @@ def train():
     start_time = time.time()
     hidden = model.init_hidden(args.batch_size)
     for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
-        # print("training...........")
+        # print("training........... ", train_data.size(0)," ", args.bptt)
         optimizer.zero_grad()
         data, targets = get_batch(train_data, train_data_t, i)
         # print("targets batch ", targets)
@@ -278,8 +310,13 @@ def train():
         hidden = repackage_hidden(hidden)
         model.zero_grad()
         output, hidden = model(data, hidden)
+        # prediction = output[-1]
+        # correct_target = targets[-1]
         # print("output, ",output)
-        BCE = criterionBCE(output, targets)
+        # BCE = criterionBCE(prediction, correct_target)
+        # L1 = criterionL1(prediction, correct_target)
+        # BCE = criterionBCE(output, targets) #BCELoss
+        BCE = criterionBCE(output.view(-1,3), targets.view(-1,3))
         L1 = criterionL1(output.view(args.batch_size, -1), targets)
         loss = BCE + lambdaL1*L1
         loss.backward()
@@ -293,16 +330,18 @@ def train():
         total_loss += loss.data
         total_BCE += BCE.data
         total_L1 += L1.data
+        
 
         if batch % args.log_interval == 0 and batch > 0:
             cur_loss = total_loss[0] / args.log_interval
             cur_BCE = total_BCE[0] / args.log_interval
             cur_L1 = total_L1[0] / args.log_interval
+            cur_recall = recallFitness("training") /args.log_interval
             elapsed = time.time() - start_time
-            print('| epoch {:2d}| {:5d}/{:5d}| ms/batch {:4.2f}| '
-                    'loss {:5.2f}| BCE {:4.2f}| L1 {:4.2f} '.format(
+            print('| epoch {:2d}| {:3d}/{:3d}| ms/btc {:4.2f}| '
+                    'loss {:5.2f}| BCE {:4.2f}| L1 {:4.2f}| Rec {:3.4f} '.format(
                 epoch, batch, len(train_data) // args.bptt,
-                elapsed * 1000 / args.log_interval, cur_loss, cur_BCE, cur_L1))
+                elapsed * 1000 / args.log_interval, cur_loss, cur_BCE, cur_L1, cur_recall))
             total_loss = 0
             total_BCE = 0
             total_L1 = 0
@@ -310,11 +349,15 @@ def train():
             
         if args.plot:
             confusion_matrix(output, targets, "training")
+            # confusion_matrix(prediction, correct_target, "training")
 
 
 # Loop over epochs.
 lr = args.lr
 best_val_loss = None
+best_epoch = -1
+best_recall_epoch = -1
+best_fitness = 0
 optimizer = optim.Adagrad(model.parameters(), lr=0.01)
 
 # At any point you can hit Ctrl + C to break out of training early.
@@ -325,27 +368,42 @@ try:
         epoch_start_time = time.time()
         train()
         val_loss = evaluate(val_data, val_data_t)#evaluate(val_data)
+        fitness = recallFitness("validation")
         print('-' * 89)
-        print('| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
-                'valid ppl {:8.2f}'.format(epoch, (time.time() - epoch_start_time),
-                                           val_loss, math.exp(val_loss)))
+        print('| end of epoch {:3d} | time: {:5.2f}s | loss*100 {:5.2f} | '
+                'recall {:3.4f}'.format(epoch, (time.time() - epoch_start_time),
+                                           val_loss*100, fitness))
         print('-' * 89)
         # Save the model if the validation loss is the best we've seen so far.
         if not best_val_loss or val_loss < best_val_loss:
             with open(args.save, 'wb') as f:
                 torch.save(model, f)
             best_val_loss = val_loss
+            best_epoch = epoch
+        if not best_fitness or fitness > best_fitness:
+            with open(args.recallsave, 'wb') as f:
+                torch.save(model, f)
+            best_fitness = fitness
+            best_recall_epoch = epoch
         # else:
         #     # Anneal the learning rate if no improvement has been seen in the validation dataset.
         #     lr /= 1.5
+
+        # Run on test data.
+        
         if args.plot:
             plotter("training",epoch)
             plotter("validation",epoch)
+
+        train_confusion = np.reshape([[0 for i in range(3)] for j in range(3)], (3, 3))
+        valid_confusion = np.reshape([[0 for i in range(3)] for j in range(3)], (3, 3))
 except KeyboardInterrupt:
     print('-' * 89)
     print('Exiting from training early')
 
 end_time = time.time()
+print("The best fitness is in Epoch: ", best_epoch)
+print("The best recall is in Epoch: ", best_recall_epoch)
 
 # Load the best saved model.
 with open(args.save, 'rb') as f:
@@ -354,9 +412,23 @@ with open(args.save, 'rb') as f:
 # Run on test data.
 test_loss = evaluate(test_data, test_data_t, test=True)
 print('=' * 89)
-print('| End of training | Total time {:5.2f}  |  test loss {:5.2f} | test ppl {:8.2f}'.format(
+print('| Best Loss | Total time {:5.2f}  |  test loss {:5.2f} | test ppl {:8.2f}'.format(
     end_time-begin_time, test_loss, math.exp(test_loss)))
 print('=' * 89)
-# test_confusion[0,1]+=50000
 if args.plot:
-    plotter("test")
+    plotter("test", epoch=best_epoch)
+
+
+test_confusion = np.reshape([[0 for i in range(3)] for j in range(3)], (3, 3))
+with open(args.recallsave, 'rb') as f:
+    model = torch.load(f)
+
+# Run on test data.# Run on test data.
+test_loss = evaluate(test_data, test_data_t, test=True)
+recall_fitness = recallFitness("test")
+print('=' * 89)
+print('| Best Recall Average | Total time {:5.2f}  | Recall Fitness {:3.4f}'.format(
+    end_time-begin_time, recall_fitness))
+print('=' * 89)
+if args.plot:
+    plotter("test", epoch=best_recall_epoch)
