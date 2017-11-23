@@ -161,7 +161,7 @@ def confusion_matrix(output, target, which_matrix):
     _,t=torch.max(target.view(-1,3),1)
     t = t.data.cpu().numpy()
     y = y.data.cpu().numpy()
-    # print(t,y)
+    # print("conf",t,y)
     assert len(t)==len(y), "target and output have different sizes"
     for i in range(len(t)):
         if which_matrix == "training":
@@ -261,8 +261,10 @@ def evaluate(data_source, targets, test=False):
         data, targ = get_batch(data_source, targets, i, evaluation=True)
         output, hidden = model(data, hidden)
         # print("output",output)
+        # print("target", targ)
         # print("data",data)
         output_flat = output.view(eval_batch_size, -1)
+        # print("output_flat", output_flat)
         # output_flat = output[-1]  # .view(eval_batch_size, -1)
         correct_target = targ[-1]
         
@@ -281,12 +283,11 @@ def evaluate(data_source, targets, test=False):
         #         # print(output)
         #     else:
         #         confusion_matrix(output_flat, correct_target, "validation")
-        if args.plot:
-            if test:
-                confusion_matrix(output, targ, "test")
-                # print(output)
-            else:
-                confusion_matrix(output, targ, "validation")
+        if test:
+            confusion_matrix(output, targ, "test")
+            # print(output)
+        else:
+            confusion_matrix(output, targ, "validation")
                 
     # print("totalloss", total_loss)
     # print(" len data ",len(data))
@@ -349,9 +350,9 @@ def train():
             total_L1 = 0
             start_time = time.time()
             
-        if args.plot:
-            confusion_matrix(output, targets, "training")
-            # confusion_matrix(prediction, correct_target, "training")
+        
+        confusion_matrix(output, targets, "training")
+        # confusion_matrix(prediction, correct_target, "training")
 
 
 # Loop over epochs.
