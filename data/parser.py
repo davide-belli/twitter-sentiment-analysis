@@ -5,7 +5,7 @@ def parse(input,output):
     lines=[]
     with open('./'+input, 'r') as f:
         for line in f:
-            _,_,target,sentence = line.split("\t")
+            _,target,sentence = line.split("\t") #NOTE in 2013 there is one more ID at beginning of each tweet
             # targets.append(target)
             # sentences.append(sentence)
             lines.append(target+"|_|"+sentence)
@@ -18,4 +18,4 @@ def parse(input,output):
 #parse('source_train.tsv','unpad_train.txt')
 #parse('source_valid.tsv','unpad_valid.txt')
 #parse('source_test.tsv','unpad_test.txt')
-parse('source_dataset.tsv','unpad_dataset.txt')
+parse('source_2017.tsv','unpad_2017.txt')

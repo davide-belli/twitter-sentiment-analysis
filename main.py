@@ -22,7 +22,7 @@ parser.add_argument('--emsize', type=int, default=200,
                     help='size of word embeddings')
 parser.add_argument('--nhid', type=int, default=200,
                     help='number of hidden units per layer')
-parser.add_argument('--nlayers', type=int, default=2,
+parser.add_argument('--nlayers', type=int, default=3,
                     help='number of layers')
 parser.add_argument('--lr', type=float, default=20,
                     help='initial learning rate')
@@ -60,7 +60,7 @@ if torch.cuda.is_available():
     else:
         torch.cuda.manual_seed(args.seed)
         
-LEARNING_RATE = 0.1 #0.005
+LEARNING_RATE = 0.05 #0.005
 
 ###############################################################################
 # Load data

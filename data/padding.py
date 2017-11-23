@@ -35,4 +35,4 @@ def add_padding(input,output):
 #add_padding('unpad_train.txt','train.txt')
 #add_padding('unpad_valid.txt','valid.txt')
 #add_padding('unpad_test.txt','test.txt')
-add_padding('unpad_dataset.txt','dataset.txt')
+add_padding('unpad_2017.txt','2017.txt')

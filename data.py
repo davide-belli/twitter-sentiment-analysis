@@ -132,6 +132,7 @@ class Corpus(object):
         token = 0
         for i in range(train_amount):
             # print(i*tweet_len)
+            # print(len(words), tweet_len)
             line = train_dataset[i]
             target, sentence = line.split("|_|")
             words = sentence.split()
