@@ -60,7 +60,7 @@ if torch.cuda.is_available():
     else:
         torch.cuda.manual_seed(args.seed)
         
-LEARNING_RATE = 0.1 #0.005
+LEARNING_RATE = 0.01 #0.005
 
 ###############################################################################
 # Load data
@@ -269,16 +269,16 @@ def evaluate(data_source, targets, test=False):
         last_output = output[-1]
         last_target = targ[-1]
         # _, index_output = torch.max(last_output,1)
-        _, index_target = torch.max(targ, 2)
+        _, index_target = torch.max(last_target, 1)
         # print("lastout",last_output)
         # print("lasttarg",last_targ)
         
         # BCE = criterionBCE(output_flat.view(-1), correct_target.view(-1)).data
         # L1 = criterionL1(output_flat, correct_target).data
         #
-        BCE = criterionBCE(output.view(-1,3), index_target.view(-1)).data
+        BCE = criterionBCE(last_output, index_target).data
         # print("bce",BCE)
-        L1 = criterionL1(output, targ).data
+        L1 = criterionL1(last_output, last_target).data
         total_loss += BCE + lambdaL1*L1
         hidden = repackage_hidden(hidden)
         model.zero_grad()
@@ -326,7 +326,7 @@ def train():
         # print("lastout",last_output)
         # print("lasttarg",last_target)
         # _, index_output = torch.max(last_output,1)
-        _, index_target = torch.max(targets, 2)
+        _, index_target = torch.max(last_target, 1)
         # print("index", index_target)
 
         # print("indextarg",index_target)
@@ -336,8 +336,8 @@ def train():
         # BCE = criterionBCE(prediction, correct_target)
         # L1 = criterionL1(prediction, correct_target)
         # BCE = criterionBCE(output, targets) #BCELoss
-        BCE = criterionBCE(output.view(-1,3), index_target.view(-1))
-        L1 = criterionL1(output, targets)
+        BCE = criterionBCE(last_output, index_target)
+        L1 = criterionL1(last_output, last_target)
         loss = BCE + lambdaL1*L1
         loss.backward()
 
