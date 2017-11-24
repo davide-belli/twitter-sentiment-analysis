@@ -14,7 +14,7 @@ import data
 import model
 
 parser = argparse.ArgumentParser(description='PyTorch Sentiment Analysis RNN/LSTM Language Model')
-parser.add_argument('--data', type=str, default='./data',
+parser.add_argument('--data', type=str, default='./data/2017',
                     help='location of the data corpus')
 parser.add_argument('--model', type=str, default='LSTM',
                     help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU)')
@@ -22,10 +22,12 @@ parser.add_argument('--emsize', type=int, default=200,
                     help='size of word embeddings')
 parser.add_argument('--nhid', type=int, default=200,
                     help='number of hidden units per layer')
-parser.add_argument('--nlayers', type=int, default=3,
+parser.add_argument('--nlayers', type=int, default=2,
                     help='number of layers')
-parser.add_argument('--lr', type=float, default=20,
+parser.add_argument('--lr', type=float, default=0.01,
                     help='initial learning rate')
+parser.add_argument('--lambda', type=float, default=0.1,
+                    help='lambdaL1')
 parser.add_argument('--clip', type=float, default=0.25,
                     help='gradient clipping')
 parser.add_argument('--epochs', type=int, default=40,
@@ -42,7 +44,7 @@ parser.add_argument('--seed', type=int, default=1111,
                     help='random seed')
 parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
-parser.add_argument('--log-interval', type=int, default=30, metavar='N',
+parser.add_argument('--log-interval', type=int, default=50, metavar='N',
                     help='report interval')
 parser.add_argument('--save', type=str,  default='model.pt',
                     help='path to save the final model')
@@ -60,7 +62,7 @@ if torch.cuda.is_available():
     else:
         torch.cuda.manual_seed(args.seed)
         
-LEARNING_RATE = 0.05 #0.005
+LEARNING_RATE = args.lr #0.005
 
 ###############################################################################
 # Load data
@@ -125,7 +127,7 @@ test_data_t = batchify_target(corpus.test_t, eval_batch_size) #eval_batch_size)
 # print("batchified ",val_data_t[-1])
 # # print("batchified test ",test_data)
 # print("batchified ",test_data_t[-1])
-input("Press Enter to continue with training...")
+# input("Press Enter to continue with training...")
 train_confusion=np.reshape([[0 for i in range(3)]for j in range(3)],(3,3))
 valid_confusion=np.reshape([[0 for i in range(3)]for j in range(3)],(3,3))
 test_confusion=np.reshape([[0 for i in range(3)]for j in range(3)],(3,3))
@@ -140,10 +142,12 @@ model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers
 if args.cuda:
     model.cuda()
 
-criterionBCE = nn.NLLLoss()
+criterionNLLtrain = nn.NLLLoss(weight=corpus.train_weights.cuda())
+criterionNLLvalid = nn.NLLLoss(weight=corpus.valid_weights.cuda())
+criterionNLLtest = nn.NLLLoss(weight=corpus.test_weights.cuda())
 # criterionBCE = nn.BCELoss()
 criterionL1 = nn.L1Loss() #nn.CrossEntropyLoss()
-lambdaL1 = 0.5
+lambdaL1 = args.lamb
 
 ###############################################################################
 # Training code
@@ -198,7 +202,7 @@ def plotter(which_matrix,epoch=0):
     alphabet = ["negative","neutral","positive"]
     plt.xticks(range(width), alphabet[:width])
     plt.yticks(range(height), alphabet[:height])
-    path = "./confusion_matrixes/"+str(exec_time)+"/"
+    path = "./confusion_matrixes/"+args.path+"_lr"+str(LEARNING_RATE)+"_lam"+str(lambdaL1)+"/" #str(exec_time)
     if not os.path.exists(path):
         os.makedirs(path)
     plt.savefig(path+"confusion_matrix_"+which_matrix+"_"+str(epoch)+'.png', format='png')
@@ -251,6 +255,11 @@ def evaluate(data_source, targets, test=False):
     model.eval()
     total_loss = 0
     
+    if(test):
+        criterionNLL = criterionNLLtest
+    else:
+        criterionNLL = criterionNLLvalid
+        
     hidden = model.init_hidden(eval_batch_size) #eval_batch_size)
 
     # print("size",data_source.size(0)," ",args.bptt)
@@ -276,7 +285,7 @@ def evaluate(data_source, targets, test=False):
         # BCE = criterionBCE(output_flat.view(-1), correct_target.view(-1)).data
         # L1 = criterionL1(output_flat, correct_target).data
         #
-        BCE = criterionBCE(output.view(-1,3), index_target.view(-1)).data
+        BCE = criterionNLL(output.view(-1,3), index_target.view(-1)).data
         # print("bce",BCE)
         L1 = criterionL1(output, targ).data
         total_loss += BCE + lambdaL1*L1
@@ -336,7 +345,7 @@ def train():
         # BCE = criterionBCE(prediction, correct_target)
         # L1 = criterionL1(prediction, correct_target)
         # BCE = criterionBCE(output, targets) #BCELoss
-        BCE = criterionBCE(output.view(-1,3), index_target.view(-1))
+        BCE = criterionNLLtrain(output.view(-1,3), index_target.view(-1))
         L1 = criterionL1(output, targets)
         loss = BCE + lambdaL1*L1
         loss.backward()
@@ -452,3 +461,10 @@ print('| Best Recall Average | Total time {:5.2f}  | Recall Fitness {:3.4f}'.for
 print('=' * 89)
 if args.plot:
     plotter("test", epoch=best_recall_epoch)
+
+
+path = "./confusion_matrixes/"+str(exec_time)+"_lr"+str(LEARNING_RATE)+"_lam"+str(lambdaL1)+"/"
+with open(path + "results.txt", 'w') as f:
+    f.write("The best fitness is in Epoch: ", best_epoch,"\nThe best recall is in Epoch: ", best_recall_epoch)
+    f.write('| Best Recall Average | Total time {:5.2f}  | Recall Fitness {:3.4f}'.format(
+    end_time-begin_time, recall_fitness))

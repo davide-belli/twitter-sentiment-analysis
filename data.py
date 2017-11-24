@@ -35,11 +35,50 @@ class Dictionary(object):
 class Corpus(object):
     def __init__(self, path):
         self.dictionary = Dictionary()
-        # self.train, self.train_t, self.train_len = self.tokenize(os.path.join(path, 'train.txt'))
-        # self.valid, self.valid_t, self.valid_len = self.tokenize(os.path.join(path, 'valid.txt'))
-        # self.test, self.test_t, self.test_len = self.tokenize(os.path.join(path, 'test.txt'))
-        self.train, self.train_t, self.valid, self.valid_t, self.test, self.test_t, self.train_len, self.valid_len, self.test_len, self.tweet_len= self.tokenize(os.path.join(path, 'dataset.txt'))
+        self.train, self.train_t, self.train_len, self.tweet_len, self.train_weights = self.tokenize_single(os.path.join(path, 'train.txt'))
+        self.valid, self.valid_t, self.valid_len, self.tweet_len, self.valid_weights= self.tokenize_single(os.path.join(path, 'valid.txt'))
+        self.test, self.test_t, self.test_len, self.tweet_len, self.test_weights = self.tokenize_single(os.path.join(path, 'test.txt'))
+        # self.train, self.train_t, self.valid, self.valid_t, self.test, self.test_t, self.train_len, self.valid_len, self.test_len, self.tweet_len= self.tokenize(os.path.join(path, 'dataset.txt'))
 
+    def tokenize_single(self, path):
+        assert os.path.exists(path)
+        
+        random.seed(1234)
+
+        with open(path, 'r') as f:
+            tokens = 0
+            tweet_amount = 0
+            for line in f:
+                target, sentence = line.split("|_|")
+                words = sentence.split()
+                tokens += len(words)
+                tweet_amount += 1
+                for word in words:
+                    self.dictionary.add_word(word)
+
+        tweet_len = tokens // tweet_amount
+
+        with open(path, 'r') as f:
+            ids = torch.LongTensor(tokens)
+            targets = torch.FloatTensor(tokens, 3)
+            token = 0
+            for line in f:
+                target, sentence = line.split("|_|")
+                words = sentence.split()
+                for word in words:
+                    ids[token] = self.dictionary.word2idx[word]
+                    this_target, _ = targetToFloat(target)
+                    for j in range(3):
+                        targets[token][j] = this_target[j]
+                    token += 1
+                    
+        tot = targets.sum(0)
+        weights = tot.sum()/tot
+        print(path, "tweet_len: ", tweet_len, "tweet_amount ",tweet_amount, "classes", tot, "weightsNLL ",weights)
+    
+        return ids, targets, tweet_amount, tweet_len, weights
+    
+    
     def tokenize(self, path):
         """Tokenizes a text file."""
         assert os.path.exists(path)

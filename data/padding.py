@@ -1,9 +1,22 @@
 
-def add_padding(input,output):
+def data_len(input):
+    max_len = 0
+    with open('./'+input, 'r') as f:
+        for line in f:
+            target,sentence = line.split("|_|")
+            words = sentence.split()
+            if len(words)>max_len:
+                max_len = len(words)
+                max_sentence= words
+    print(max_len)
+    print(max_sentence)
+    return max_len
+
+def add_padding(input,output, max_len):
     sentences=[]
     targets=[]
-    max_len=0
-    max_sentence=""
+    #max_len=0
+    #max_sentence=""
     with open('./'+input, 'r') as f:
         for line in f:
             target,sentence = line.split("|_|")
@@ -12,14 +25,13 @@ def add_padding(input,output):
             words = sentence.split()
             #print(words)
             #print(len(words),"\n")
-            if len(words)>max_len:
-                max_len = len(words)
-                max_sentence= words
+            #if len(words)>max_len:
+                #max_len = len(words)
+                #max_sentence= words
                 #print(max_len)
                 #print(max_sentence)
 
     print(max_len)
-    print(max_sentence)
     #print(max_sentence[5], max_sentence[-1])
     for s in range(len(sentences)):
         sentences[s]=sentences[s][:-2]
@@ -31,8 +43,13 @@ def add_padding(input,output):
     with open('./'+output,'w') as f:
         for i in range(len(targets)):
             f.write(targets[i]+"|_|"+sentences[i])
-            
-#add_padding('unpad_train.txt','train.txt')
-#add_padding('unpad_valid.txt','valid.txt')
-#add_padding('unpad_test.txt','test.txt')
-add_padding('unpad_2017.txt','2017.txt')
+      
+train = 'unpad_train.txt'
+valid = 'unpad_valid.txt'
+test = 'unpad_test.txt'
+max_len = max(data_len(train),data_len(valid),data_len(test))
+
+add_padding(train,'train.txt', max_len)
+add_padding(valid,'valid.txt', max_len)
+add_padding(test,'test.txt', max_len)
+#add_padding('unpad_2017.txt','2017.txt')
