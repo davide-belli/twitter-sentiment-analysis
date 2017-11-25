@@ -466,5 +466,6 @@ if args.plot:
     plotter("test", epoch=best_recall_epoch)
 
 with open(path + "a_results.txt", 'w') as f:
-    f.write("The best fitness is in Epoch: "+ str(best_epoch)+"\nThe best recall is in Epoch: "+ str(best_recall_epoch))
-    f.write('\n| Best Recall Average | Total time {:5.2f}  | Recall in Best Fitness {:3.4f} | Recall in Best Recall {:3.4f}'.format(end_time - begin_time, recall_fitness_NLL, recall_fitness))
+    f.write(path)
+    f.write("\n\nThe best fitness is in Epoch: "+ str(best_epoch)+"\nThe best recall is in Epoch: "+ str(best_recall_epoch))
+    f.write('\n\n| Best Recall Average | Total time {:5.2f}  | Recall in Best Fitness {:3.4f} | Recall in Best Recall {:3.4f}'.format(end_time - begin_time, recall_fitness_NLL, recall_fitness))
