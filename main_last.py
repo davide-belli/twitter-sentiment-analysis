@@ -203,7 +203,7 @@ def plotter(which_matrix,epoch=0):
     alphabet = ["negative","neutral","positive"]
     plt.xticks(range(width), alphabet[:width])
     plt.yticks(range(height), alphabet[:height])
-    path = "./confusion_matrixes/"+args.path+"_lr"+str(LEARNING_RATE)+"_lam"+str(lambdaL1)+"/" #str(exec_time)
+    path = "./confusion_matrixes/"+args.data+"_lr"+str(LEARNING_RATE)+"_lam"+str(lambdaL1)+"/" #str(exec_time)
     if not os.path.exists(path):
         os.makedirs(path)
     plt.savefig(path+"confusion_matrix_"+which_matrix+"_"+str(epoch)+'.png', format='png')
@@ -463,8 +463,7 @@ print('=' * 89)
 if args.plot:
     plotter("test", epoch=best_recall_epoch)
 
-path = "./confusion_matrixes/"+str(exec_time)+"_lr"+str(LEARNING_RATE)+"_lam"+str(lambdaL1)+"/"
+path = "./confusion_matrixes/"+args.data+"_lr"+str(LEARNING_RATE)+"_lam"+str(lambdaL1)+"/" #str(exec_time)
 with open(path + "results.txt", 'w') as f:
-    f.write("The best fitness is in Epoch: ", best_epoch,"\nThe best recall is in Epoch: ", best_recall_epoch)
-    f.write('| Best Recall Average | Total time {:5.2f}  | Recall Fitness {:3.4f}'.format(
-    end_time-begin_time, recall_fitness))
+    f.write("The best fitness is in Epoch: "+ str(best_epoch)+"\nThe best recall is in Epoch: "+ str(best_recall_epoch))
+    f.write('| Best Recall Average | Total time {:5.2f}  | Recall Fitness {:3.4f}'.format(end_time-begin_time, recall_fitness))
