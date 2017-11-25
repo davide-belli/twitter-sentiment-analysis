@@ -63,6 +63,7 @@ if torch.cuda.is_available():
         torch.cuda.manual_seed(args.seed)
         
 LEARNING_RATE = args.lr #0.005
+lambdaL1 = args.lamb
 
 ###############################################################################
 # Load data
@@ -111,7 +112,6 @@ def batchify_target(data, bsz):
     return data
 
 eval_batch_size = 10
-args.batch_size=20
 args.bptt=corpus.tweet_len
 print("batch size= ",args.batch_size," sequence size= ",args.bptt," tweets number= ",corpus.train.size(0)//corpus.tweet_len,"train len= ",corpus.train.size(0))
 # print("corpus ",corpus.train_t)
@@ -142,13 +142,11 @@ model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers
 if args.cuda:
     model.cuda()
 
-# criterionBCE = nn.NLLLoss()
 criterionNLLtrain = nn.NLLLoss(weight=corpus.train_weights.cuda())
 criterionNLLvalid = nn.NLLLoss(weight=corpus.valid_weights.cuda())
 criterionNLLtest = nn.NLLLoss(weight=corpus.test_weights.cuda())
 # criterionBCE = nn.BCELoss()
 criterionL1 = nn.L1Loss() #nn.CrossEntropyLoss()
-lambdaL1 = args.lamb
 
 ###############################################################################
 # Training code
@@ -203,7 +201,6 @@ def plotter(which_matrix,epoch=0):
     alphabet = ["negative","neutral","positive"]
     plt.xticks(range(width), alphabet[:width])
     plt.yticks(range(height), alphabet[:height])
-    path = "./confusion_matrixes/"+args.data+"_lr"+str(LEARNING_RATE)+"_lam"+str(lambdaL1)+"/" #str(exec_time)
     if not os.path.exists(path):
         os.makedirs(path)
     plt.savefig(path+"confusion_matrix_"+which_matrix+"_"+str(epoch)+'.png', format='png')
@@ -393,6 +390,9 @@ optimizer = optim.Adagrad(model.parameters(), lr=LEARNING_RATE)
 # At any point you can hit Ctrl + C to break out of training early.
 try:
     exec_time = time.time()
+    path = "./confusion_matrixes/main_last/" + args.model + "_lr" + str(LEARNING_RATE) + "_lam_" + str(
+        lambdaL1) + "_btchsize_" + str(args.batch_size) + "_" + str(exec_time)[-3:] + "/"  # str(exec_time)
+    
     begin_time = time.time()
     for epoch in range(1, args.epochs+1):
         epoch_start_time = time.time()
@@ -441,6 +441,8 @@ with open(args.save, 'rb') as f:
 
 # Run on test data.
 test_loss = evaluate(test_data, test_data_t, test=True)
+
+recall_fitness_NLL = recallFitness("test")
 print('=' * 89)
 print('| Best Loss | Total time {:5.2f}  |  test loss {:5.2f} | test ppl {:8.2f}'.format(
     end_time-begin_time, test_loss, math.exp(test_loss)))
@@ -463,7 +465,6 @@ print('=' * 89)
 if args.plot:
     plotter("test", epoch=best_recall_epoch)
 
-path = "./confusion_matrixes/"+args.data+"_lr"+str(LEARNING_RATE)+"_lam"+str(lambdaL1)+"/" #str(exec_time)
-with open(path + "results.txt", 'w') as f:
+with open(path + "a_results.txt", 'w') as f:
     f.write("The best fitness is in Epoch: "+ str(best_epoch)+"\nThe best recall is in Epoch: "+ str(best_recall_epoch))
-    f.write('| Best Recall Average | Total time {:5.2f}  | Recall Fitness {:3.4f}'.format(end_time-begin_time, recall_fitness))
+    f.write('\n| Best Recall Average | Total time {:5.2f}  | Recall in Best Fitness {:3.4f} | Recall in Best Recall {:3.4f}'.format(end_time - begin_time, recall_fitness_NLL, recall_fitness))

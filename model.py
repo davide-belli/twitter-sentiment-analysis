@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
@@ -5,6 +6,8 @@ class RNNModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
     def __init__(self, rnn_type, ntoken, ninp, nhid, nlayers, dropout=0.5, tie_weights=False):
+    
+        torch.manual_seed(1234)
         super(RNNModel, self).__init__()
         self.drop = nn.Dropout(dropout)
         self.encoder = nn.Embedding(ntoken, ninp)
