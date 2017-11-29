@@ -12,7 +12,7 @@ class RNNModel(nn.Module):
         self.drop = nn.Dropout(dropout)
         self.encoder1 = nn.Embedding(ntoken, ninp)
         self.encoder2 = nn.Embedding(ntoken, ninp)
-        if rnn_type in ['LSTM', 'GRU']:
+        if rnn_type in ['LSTM_BIDIR']:
             self.rnn1 = getattr(nn, rnn_type)(ninp, nhid, nlayers, dropout=dropout)
             self.rnn2 = getattr(nn, rnn_type)(ninp, nhid, nlayers, dropout=dropout)
         
@@ -68,8 +68,10 @@ class RNNModel(nn.Module):
 
     def init_hidden(self, bsz):
         weight = next(self.parameters()).data
-        if self.rnn_type == 'LSTM':
+        if self.rnn_type == 'LSTM_BIDIR':
             return (Variable(weight.new(self.nlayers, bsz, self.nhid).zero_()),
+                    Variable(weight.new(self.nlayers, bsz, self.nhid).zero_())),\
+                   (Variable(weight.new(self.nlayers, bsz, self.nhid).zero_()),
                     Variable(weight.new(self.nlayers, bsz, self.nhid).zero_()))
         else:
             return Variable(weight.new(self.nlayers, bsz, self.nhid).zero_())

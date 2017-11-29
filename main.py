@@ -13,6 +13,9 @@ import os
 import data
 import model
 
+#########
+# TODO: init_hidden returns pair, model wants 2 hiddens, discriminate LSTM_BIDIR in input
+
 parser = argparse.ArgumentParser(description='PyTorch Sentiment Analysis RNN/LSTM Language Model')
 parser.add_argument('--data', type=str, default='./data/2017',
                     help='location of the data corpus')
