@@ -55,10 +55,17 @@ parser.add_argument('--recallsave', type=str,  default='model_recall.pt',
                     help='path to save the final model')
 parser.add_argument('--plot', action='store_true',
                     help='plot confusion matrix')
+parser.add_argument('--last', action='store_true',
+                    help='plot confusion matrix')
 args = parser.parse_args()
 
+if args.last:
+    dir_name = "LAST_WORD/"
+else:
+    dir_name = "EVERY_WORD/"
+
 # Set the random seed manually for reproducibility.
-torch.manual_seed(args.seed)
+# torch.manual_seed(args.seed)
 if torch.cuda.is_available():
     if not args.cuda:
         print("WARNING: You have a CUDA device, so you should probably run with --cuda")
@@ -289,19 +296,23 @@ def evaluate(data_source, targets, test=False):
         #output_flat = output.view(eval_batch_size, -1)
         # print("output_flat", output_flat)
         # output_flat = output[-1]  # .view(eval_batch_size, -1)
-        last_output = output[-1]
-        last_target = targ[-1]
-        # _, index_output = torch.max(last_output,1)
-        _, index_target = torch.max(targ, 2)
+        if args.last:
+            last_output = output[-1]
+            last_target = targ[-1]
+            # _, index_output = torch.max(last_output,1)
+            _, index_target = torch.max(last_target, 1)
+        else:
+            _, index_target = torch.max(targ, 2)
+            BCE = criterionNLL(output.view(-1, 3), index_target.view(-1)).data
+            # print("bce",BCE)
+            L1 = criterionL1(output, targ).data
         # print("lastout",last_output)
         # print("lasttarg",last_targ)
         
         # BCE = criterionBCE(output_flat.view(-1), correct_target.view(-1)).data
         # L1 = criterionL1(output_flat, correct_target).data
         #
-        BCE = criterionNLL(output.view(-1,3), index_target.view(-1)).data
-        # print("bce",BCE)
-        L1 = criterionL1(output, targ).data
+        
         total_loss += BCE + lambdaL1*L1
         
         if args.model == "LSTM_BIDIR":
@@ -369,7 +380,15 @@ def train():
         # print("lastout",last_output)
         # print("lasttarg",last_target)
         # _, index_output = torch.max(last_output,1)
-        _, index_target = torch.max(targets, 2)
+        
+        if args.last:
+            _, index_target = torch.max(last_target, 1)
+            BCE = criterionNLLtrain(last_output, index_target)
+            L1 = criterionL1(last_output, last_target)
+        else:
+            _, index_target = torch.max(targets, 2)
+            BCE = criterionNLLtrain(output.view(-1, 3), index_target.view(-1))
+            L1 = criterionL1(output, targets)
         # print("index", index_target)
 
         # print("indextarg",index_target)
@@ -379,8 +398,7 @@ def train():
         # BCE = criterionBCE(prediction, correct_target)
         # L1 = criterionL1(prediction, correct_target)
         # BCE = criterionBCE(output, targets) #BCELoss
-        BCE = criterionNLLtrain(output.view(-1,3), index_target.view(-1))
-        L1 = criterionL1(output, targets)
+        
         loss = BCE + lambdaL1*L1
         loss.backward()
 
@@ -426,7 +444,7 @@ optimizer = optim.Adagrad(model.parameters(), lr=LEARNING_RATE)
 # At any point you can hit Ctrl + C to break out of training early.
 try:
     exec_time = time.time()
-    path = "./confusion_matrixes/main/" + args.model + "_lr" + str(LEARNING_RATE) + "_lam_" + str(
+    path = "./confusion_matrixes/"+ dir_name + args.model + "_lr" + str(LEARNING_RATE) + "_lam_" + str(
         lambdaL1) + "_btchsize_" + str(args.batch_size) + "_" + str(exec_time)[-3:] + "/"  # str(exec_time)
     
     begin_time = time.time()

@@ -76,6 +76,12 @@ class RNNModel(nn.Module):
             return Variable(weight.new(self.nlayers, bsz, self.nunits).zero_())
 
 def reverse_input(x, dim):
-    rNpArr = np.flip(x.data.cpu().numpy(), dim).copy()
-    rTensor = torch.from_numpy(rNpArr).cuda()
-    return Variable(rTensor)
+    # rNpArr = np.flip(x.data.cpu().numpy(), dim).copy()
+    # rTensor = torch.from_numpy(rNpArr).cuda()
+    # return Variable(rTensor)
+    
+    input = x
+    idx = [i for i in range(input.size(0) - 1, -1, -1)]
+    idx = Variable(torch.cuda.LongTensor(idx))
+    inverted_tensor = input.index_select(0, idx)
+    return inverted_tensor

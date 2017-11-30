@@ -81,17 +81,12 @@ class BI_LSTMModel(nn.Module):
                 Variable(weight.new(self.nlayers, bsz, self.nunits2).zero_()))
         
 def reverse_input(x, dim):
-    rNpArr = np.flip(x.data.cpu().numpy(), dim).copy()
-    rTensor = torch.from_numpy(rNpArr).cuda()
-    return Variable(rTensor)
+    # rNpArr = np.flip(x.data.cpu().numpy(), dim).copy()
+    # rTensor = torch.from_numpy(rNpArr).cuda()
+    # return Variable(rTensor)
     
-    # dim = x.dim() + dim if dim < 0 else dim
-    # inds = tuple(slice(None, None) if i != dim
-    #              else x.new(torch.arange(x.size(i) - 1, -1, -1).tolist()).long()
-    #              for i in range(x.dim()))
-    # return x[inds]
-    
-    # idx = [i for i in range(input.size(0) - 1, -1, -1)]
-    # idx = torch.cuda.LongTensor(idx)
-    # inverted_tensor = input.index_select(0, idx)
-    # return inverted_tensor
+    input = x
+    idx = [i for i in range(input.size(0) - 1, -1, -1)]
+    idx = Variable(torch.cuda.LongTensor(idx))
+    inverted_tensor = input.index_select(0, idx)
+    return inverted_tensor
