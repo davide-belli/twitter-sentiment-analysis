@@ -66,6 +66,7 @@ else:
 
 # Set the random seed manually for reproducibility.
 # torch.manual_seed(args.seed)
+
 if torch.cuda.is_available():
     if not args.cuda:
         print("WARNING: You have a CUDA device, so you should probably run with --cuda")
@@ -125,18 +126,12 @@ eval_batch_size = 10
 args.bptt=corpus.tweet_len
 print("batch size= ",args.batch_size," sequence size= ",args.bptt," tweets number= ",corpus.train.size(0)//corpus.tweet_len,"train len= ",corpus.train.size(0))
 # print("corpus ",corpus.train_t)
-train_data = batchify(corpus.train, args.batch_size) #args.batch_size)
-val_data = batchify(corpus.valid, eval_batch_size) #eval_batch_size)
-test_data = batchify(corpus.test, eval_batch_size) #eval_batch_size)
-train_data_t = batchify_target(corpus.train_t, args.batch_size) #args.batch_size)
-val_data_t = batchify_target(corpus.valid_t, eval_batch_size) #eval_batch_size)
-test_data_t = batchify_target(corpus.test_t, eval_batch_size) #eval_batch_size)
-# # print("batchified train ",train_data)
-# print("batchified ",train_data_t[0])
-# # print("batchified valid ",val_data)
-# print("batchified ",val_data_t[-1])
-# # print("batchified test ",test_data)
-# print("batchified ",test_data_t[-1])
+train_data = batchify(corpus.train, args.batch_size)
+val_data = batchify(corpus.valid, eval_batch_size)
+test_data = batchify(corpus.test, eval_batch_size)
+train_data_t = batchify_target(corpus.train_t, args.batch_size)
+val_data_t = batchify_target(corpus.valid_t, eval_batch_size)
+test_data_t = batchify_target(corpus.test_t, eval_batch_size)
 # input("Press Enter to continue with training...")
 train_confusion=np.reshape([[0 for i in range(3)]for j in range(3)],(3,3))
 valid_confusion=np.reshape([[0 for i in range(3)]for j in range(3)],(3,3))
@@ -159,7 +154,7 @@ criterionNLLtrain = nn.NLLLoss(weight=corpus.train_weights.cuda())
 criterionNLLvalid = nn.NLLLoss(weight=corpus.valid_weights.cuda())
 criterionNLLtest = nn.NLLLoss(weight=corpus.test_weights.cuda())
 # criterionBCE = nn.BCELoss()
-criterionL1 = nn.L1Loss() #nn.CrossEntropyLoss()
+criterionL1 = nn.L1Loss()
 
 ###############################################################################
 # Training code
@@ -250,14 +245,8 @@ def recallFitness(which_matrix):
 
 def get_batch(source, targets, i, evaluation=False):
     seq_len = min(args.bptt, len(source) - 1 - i)
-    # print("seq_len",args.bptt," ", len(source )-1-i)
     data = Variable(source[i:i+seq_len], volatile=evaluation)
-    # print("targets", targets[i:i+seq_len,:])
-    # print("source ", source[i:i + seq_len])
     target = Variable(targets[i:i+seq_len,:].view(seq_len,-1,3))
-    # print("target ", target)
-    # target = Variable(source[i+1:i+1+seq_len].view(-1))
-    # print("data batches ", len(data),"batches size ",len(data[0]))
     return data, target
 
 
@@ -266,7 +255,7 @@ def evaluate(data_source, targets, test=False):
     model.eval()
     total_loss = 0
     
-    if(test):
+    if test:
         criterionNLL = criterionNLLtest
     else:
         criterionNLL = criterionNLLvalid
@@ -275,8 +264,6 @@ def evaluate(data_source, targets, test=False):
         hidden1, hidden2 = model.init_hidden(eval_batch_size) #eval_batch_size)
     else:
         hidden = model.init_hidden(eval_batch_size)  # eval_batch_size)
-
-    # print("size",data_source.size(0)," ",args.bptt)
 
     for i in range(0, data_source.size(0) - 1, args.bptt):
         # if len(data_source)-1-i< args.bptt:
@@ -290,31 +277,16 @@ def evaluate(data_source, targets, test=False):
                 output, hidden = model(base_model.reverse_input(data, 0), hidden)
             output, hidden = model(data, hidden)
             
-        # print("output",output)
-        # print("target", targ)
-        # print("data",data)
-        #output_flat = output.view(eval_batch_size, -1)
-        # print("output_flat", output_flat)
-        # output_flat = output[-1]  # .view(eval_batch_size, -1)
         if args.last:
             last_output = output[-1]
             last_target = targ[-1]
-            # _, index_output = torch.max(last_output,1)
             _, index_target = torch.max(last_target, 1)
             BCE = criterionNLL(last_output, index_target).data
-            # print("bce",BCE)
             L1 = criterionL1(last_output, last_target).data
         else:
             _, index_target = torch.max(targ, 2)
             BCE = criterionNLL(output.view(-1, 3), index_target.view(-1)).data
-            # print("bce",BCE)
             L1 = criterionL1(output, targ).data
-        # print("lastout",last_output)
-        # print("lasttarg",last_targ)
-        
-        # BCE = criterionBCE(output_flat.view(-1), correct_target.view(-1)).data
-        # L1 = criterionL1(output_flat, correct_target).data
-        #
         
         total_loss += BCE + lambdaL1*L1
         
@@ -326,22 +298,12 @@ def evaluate(data_source, targets, test=False):
             
         model.zero_grad()
         
-        # if args.plot:
-        #     if test:
-        #         confusion_matrix(output_flat, correct_target, "test")
-        #         # print(output)
-        #     else:
-        #         confusion_matrix(output_flat, correct_target, "validation")
         if test:
             confusion_matrix(output[-1], targ[-1], "test")
-            # print(output)
         else:
             confusion_matrix(output[-1], targ[-1], "validation")
                 
-    # print("totalloss", total_loss)
-    # print(" len data ",len(data))
-                
-    return (total_loss[0]/ len(data_source))
+    return total_loss[0] / len(data_source)
 
 
 def train():
@@ -359,11 +321,9 @@ def train():
         # print("training........... ", train_data.size(0)," ", args.bptt)
         optimizer.zero_grad()
         data, targets = get_batch(train_data, train_data_t, i)
-        # print("targets batch ", targets)
+        
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
-
-        # print("hidden1 in train ", hidden1)
         if args.model == "LSTM_BIDIR":
             hidden1 = repackage_hidden(hidden1)
             hidden2 = repackage_hidden(hidden2)
@@ -380,9 +340,6 @@ def train():
 
         last_output = output[-1]
         last_target = targets[-1]
-        # print("lastout",last_output)
-        # print("lasttarg",last_target)
-        # _, index_output = torch.max(last_output,1)
         
         if args.last:
             _, index_target = torch.max(last_target, 1)
@@ -392,24 +349,12 @@ def train():
             _, index_target = torch.max(targets, 2)
             BCE = criterionNLLtrain(output.view(-1, 3), index_target.view(-1))
             L1 = criterionL1(output, targets)
-        # print("index", index_target)
-
-        # print("indextarg",index_target)
-        
-        # print("output, ",output)
-        # print("targets",targets)
-        # BCE = criterionBCE(prediction, correct_target)
-        # L1 = criterionL1(prediction, correct_target)
-        # BCE = criterionBCE(output, targets) #BCELoss
-        
         loss = BCE + lambdaL1*L1
         loss.backward()
 
         # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
         torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)
         optimizer.step()
-        # for p in model.parameters():
-        #     p.data.add_(-lr, p.grad.data)
 
         total_loss += loss.data
         total_BCE += BCE.data
@@ -433,8 +378,11 @@ def train():
             
         
         confusion_matrix(output[-1], targets[-1], "training")
-        # confusion_matrix(prediction, correct_target, "training")
 
+
+###############################################################################
+# MAIN CODE
+###############################################################################
 
 # Loop over epochs.
 lr = args.lr
@@ -472,18 +420,14 @@ try:
                 torch.save(model, f)
             best_fitness = fitness
             best_recall_epoch = epoch
-        # else:
-        #     # Anneal the learning rate if no improvement has been seen in the validation dataset.
-        #     lr /= 1.5
-
-        # Run on test data.
-        
+            
         if args.plot:
             plotter("training",epoch)
             plotter("validation",epoch)
 
         train_confusion = np.reshape([[0 for i in range(3)] for j in range(3)], (3, 3))
         valid_confusion = np.reshape([[0 for i in range(3)] for j in range(3)], (3, 3))
+        
 except KeyboardInterrupt:
     print('-' * 89)
     print('Exiting from training early')
@@ -492,13 +436,16 @@ end_time = time.time()
 print("The best fitness is in Epoch: ", best_epoch)
 print("The best recall is in Epoch: ", best_recall_epoch)
 
-# Load the best saved model.
+
+###############################################################################
+# TEST MODELS
+###############################################################################
+
+# Load the best saved model for fitness
 with open(args.save, 'rb') as f:
     model = torch.load(f)
 
-# Run on test data.
 test_loss = evaluate(test_data, test_data_t, test=True)
-
 recall_fitness_NLL = recallFitness("test")
 print('=' * 89)
 print('| Best Loss | Total time {:5.2f}  |  test loss {:5.2f} | test ppl {:8.2f}'.format(
@@ -508,6 +455,7 @@ if args.plot:
     plotter("test", epoch=best_epoch)
 
 
+# Load the best saved model for recall
 test_confusion = np.reshape([[0 for i in range(3)] for j in range(3)], (3, 3))
 with open(args.recallsave, 'rb') as f:
     model = torch.load(f)
@@ -522,6 +470,8 @@ print('=' * 89)
 if args.plot:
     plotter("test", epoch=best_recall_epoch)
 
+
+#Print results in txt log file
 with open(path + "a_results.txt", 'w') as f:
     f.write(path)
     f.write("\n\nThe best fitness is in Epoch: "+ str(best_epoch)+"\nThe best recall is in Epoch: "+ str(best_recall_epoch))
