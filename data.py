@@ -44,7 +44,7 @@ class Corpus(object):
     def tokenize_single(self, path):
         assert os.path.exists(path)
         
-        # random.seed(1234)
+        random.seed(1234)
 
         with open(path, 'r') as f:
             tokens = 0
@@ -90,7 +90,7 @@ class Corpus(object):
         assert os.path.exists(path)
         # Add words to the dictionary
         
-        # random.seed(1234)
+        random.seed(1234)
         
         positive=[]
         neutral=[]

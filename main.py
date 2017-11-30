@@ -65,7 +65,7 @@ else:
     dir_name = "EVERY_WORD/"
 
 # Set the random seed manually for reproducibility.
-# torch.manual_seed(args.seed)
+torch.manual_seed(args.seed)
 
 if torch.cuda.is_available():
     if not args.cuda:

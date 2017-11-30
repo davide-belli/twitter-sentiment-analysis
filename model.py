@@ -8,7 +8,7 @@ class RNNModel(nn.Module):
 
     def __init__(self, rnn_type, ntoken, emsize, nunits, nlayers, dropout=0.5, tie_weights=False):
     
-        # torch.manual_seed(1234)
+        torch.manual_seed(1234)
         super(RNNModel, self).__init__()
         if rnn_type == 'LSTM_REV':
             rnn_type = 'LSTM'
