@@ -11,19 +11,22 @@ import matplotlib.pyplot as plt
 import os
 
 import data
-import model
+import model as base_model
+import bidir_lstm as bi_model
 
 parser = argparse.ArgumentParser(description='PyTorch Sentiment Analysis RNN/LSTM Language Model')
 parser.add_argument('--data', type=str, default='./data/2017',
                     help='location of the data corpus')
 parser.add_argument('--model', type=str, default='LSTM',
-                    help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU)')
+                    help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU, LSTM_BIDIR, LSTM_REV)')
 parser.add_argument('--emsize', type=int, default=200,
                     help='size of word embeddings')
 parser.add_argument('--nhid', type=int, default=200,
                     help='number of hidden units per layer')
 parser.add_argument('--nlayers', type=int, default=2,
                     help='number of layers')
+parser.add_argument('--nreduced', type=int, default=30,
+                    help='number of units in the reduced layer')
 parser.add_argument('--lr', type=float, default=0.01,
                     help='initial learning rate')
 parser.add_argument('--lamb', type=float, default=0.1,
@@ -138,7 +141,10 @@ test_confusion=np.reshape([[0 for i in range(3)]for j in range(3)],(3,3))
 
 ntokens = len(corpus.dictionary)
 print("number of tokens ",ntokens)
-model = model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied)
+if args.model=="LSTM_BIDIR":
+    model = bi_model.BI_LSTMModel(args.model, ntokens, args.emsize, args.nhid, args.nreduced, args.nlayers, args.dropout, args.tied)
+else:
+    model = base_model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied)
 if args.cuda:
     model.cuda()
 
@@ -257,8 +263,11 @@ def evaluate(data_source, targets, test=False):
         criterionNLL = criterionNLLtest
     else:
         criterionNLL = criterionNLLvalid
-        
-    hidden = model.init_hidden(eval_batch_size) #eval_batch_size)
+
+    if args.model == "LSTM_BIDIR":
+        hidden1, hidden2 = model.init_hidden(eval_batch_size) #eval_batch_size)
+    else:
+        hidden = model.init_hidden(eval_batch_size)  # eval_batch_size)
 
     # print("size",data_source.size(0)," ",args.bptt)
 
@@ -266,7 +275,14 @@ def evaluate(data_source, targets, test=False):
         # if len(data_source)-1-i< args.bptt:
         #     continue
         data, targ = get_batch(data_source, targets, i, evaluation=True)
-        output, hidden = model(data, hidden)
+        
+        if args.model == "LSTM_BIDIR":
+            output, hidden1, hidden2 = model(data, hidden1, hidden2)
+        else:
+            if args.model == "LSTM_REV":
+                output, hidden = model(base_model.reverse_input(data, 0), hidden)
+            output, hidden = model(data, hidden)
+            
         # print("output",output)
         # print("target", targ)
         # print("data",data)
@@ -287,7 +303,13 @@ def evaluate(data_source, targets, test=False):
         # print("bce",BCE)
         L1 = criterionL1(last_output, last_target).data
         total_loss += BCE + lambdaL1*L1
-        hidden = repackage_hidden(hidden)
+        
+        if args.model == "LSTM_BIDIR":
+            hidden1 = repackage_hidden(hidden1)
+            hidden2 = repackage_hidden(hidden2)
+        else:
+            hidden = repackage_hidden(hidden)
+            
         model.zero_grad()
         
         # if args.plot:
@@ -315,7 +337,10 @@ def train():
     total_BCE = 0
     total_L1 = 0
     start_time = time.time()
-    hidden = model.init_hidden(args.batch_size)
+    if args.model == "LSTM_BIDIR":
+        hidden1, hidden2 = model.init_hidden(args.batch_size)
+    else:
+        hidden = model.init_hidden(args.batch_size)
     for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
         # print("training........... ", train_data.size(0)," ", args.bptt)
         optimizer.zero_grad()
@@ -323,9 +348,20 @@ def train():
         # print("targets batch ", targets)
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
-        hidden = repackage_hidden(hidden)
+
+        # print("hidden1 in train ", hidden1)
+        if args.model == "LSTM_BIDIR":
+            hidden1 = repackage_hidden(hidden1)
+            hidden2 = repackage_hidden(hidden2)
+        else:
+            hidden = repackage_hidden(hidden)
         model.zero_grad()
-        output, hidden = model(data, hidden)
+        if args.model == "LSTM_BIDIR":
+            output, hidden1, hidden2 = model(data, hidden1, hidden2)
+        else:
+            if args.model == "LSTM_REV":
+                output, hidden = model(base_model.reverse_input(data, 0), hidden)
+            output, hidden = model(data, hidden)
         
 
         last_output = output[-1]

@@ -35,6 +35,7 @@ class Dictionary(object):
 class Corpus(object):
     def __init__(self, path):
         self.dictionary = Dictionary()
+        self.dictionary.add_word("<pad>")
         self.train, self.train_t, self.train_len, self.tweet_len, self.train_weights = self.tokenize_single(os.path.join(path, 'train.txt'))
         self.valid, self.valid_t, self.valid_len, self.tweet_len, self.valid_weights= self.tokenize_single(os.path.join(path, 'valid.txt'))
         self.test, self.test_t, self.test_len, self.tweet_len, self.test_weights = self.tokenize_single(os.path.join(path, 'test.txt'))
@@ -43,7 +44,7 @@ class Corpus(object):
     def tokenize_single(self, path):
         assert os.path.exists(path)
         
-        random.seed(1234)
+        # random.seed(1234)
 
         with open(path, 'r') as f:
             tokens = 0
@@ -79,12 +80,17 @@ class Corpus(object):
         return ids, targets, tweet_amount, tweet_len, weights
     
     
+    
+    
+    
+    
+    
     def tokenize(self, path):
         """Tokenizes a text file."""
         assert os.path.exists(path)
         # Add words to the dictionary
         
-        random.seed(1234)
+        # random.seed(1234)
         
         positive=[]
         neutral=[]

@@ -1,28 +1,31 @@
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
+import numpy as np
 
 class RNNModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
-    def __init__(self, rnn_type, ntoken, ninp, nhid, nlayers, dropout=0.5, tie_weights=False):
+    def __init__(self, rnn_type, ntoken, emsize, nunits, nlayers, dropout=0.5, tie_weights=False):
     
-        torch.manual_seed(1234)
+        # torch.manual_seed(1234)
         super(RNNModel, self).__init__()
+        if rnn_type == 'LSTM_REV':
+            rnn_type = 'LSTM'
         self.drop = nn.Dropout(dropout)
-        self.encoder = nn.Embedding(ntoken, ninp)
+        self.encoder = nn.Embedding(ntoken, emsize, padding_idx=0)
         if rnn_type in ['LSTM', 'GRU']:
-            self.rnn = getattr(nn, rnn_type)(ninp, nhid, nlayers, dropout=dropout)
+            self.rnn = getattr(nn, rnn_type)(emsize, nunits, nlayers, dropout=dropout)
         else:
             try:
                 nonlinearity = {'RNN_TANH': 'tanh', 'RNN_RELU': 'relu'}[rnn_type]
             except KeyError:
                 raise ValueError( """An invalid option for `--model` was supplied,
                                  options are ['LSTM', 'GRU', 'RNN_TANH' or 'RNN_RELU']""")
-            self.rnn = nn.RNN(ninp, nhid, nlayers, nonlinearity=nonlinearity, dropout=dropout)
-        self.decoder = nn.Linear(nhid, 3)
+            self.rnn = nn.RNN(emsize, nunits, nlayers, nonlinearity=nonlinearity, dropout=dropout)
+        self.decoder = nn.Linear(nunits, 3)
         self.softmax = nn.Softmax()
-        # self.decoder = nn.Linear(nhid, 1)
+        # self.decoder = nn.Linear(nunits, 1)
 
         # Optionally tie weights as in:
         # "Using the Output Embedding to Improve Language Models" (Press & Wolf 2016)
@@ -31,14 +34,14 @@ class RNNModel(nn.Module):
         # "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
         # https://arxiv.org/abs/1611.01462
         if tie_weights:
-            if nhid != ninp:
-                raise ValueError('When using the tied flag, nhid must be equal to emsize')
+            if nunits != emsize:
+                raise ValueError('When using the tied flag, nunits must be equal to emsize')
             self.decoder.weight = self.encoder.weight
 
         self.init_weights()
 
         self.rnn_type = rnn_type
-        self.nhid = nhid
+        self.nunits = nunits
         self.nlayers = nlayers
 
     def init_weights(self):
@@ -67,7 +70,12 @@ class RNNModel(nn.Module):
     def init_hidden(self, bsz):
         weight = next(self.parameters()).data
         if self.rnn_type == 'LSTM':
-            return (Variable(weight.new(self.nlayers, bsz, self.nhid).zero_()),
-                    Variable(weight.new(self.nlayers, bsz, self.nhid).zero_()))
+            return (Variable(weight.new(self.nlayers, bsz, self.nunits).zero_()),
+                    Variable(weight.new(self.nlayers, bsz, self.nunits).zero_()))
         else:
-            return Variable(weight.new(self.nlayers, bsz, self.nhid).zero_())
+            return Variable(weight.new(self.nlayers, bsz, self.nunits).zero_())
+
+def reverse_input(x, dim):
+    rNpArr = np.flip(x.data.cpu().numpy(), dim).copy()
+    rTensor = torch.from_numpy(rNpArr).cuda()
+    return Variable(rTensor)
