@@ -301,6 +301,9 @@ def evaluate(data_source, targets, test=False):
             last_target = targ[-1]
             # _, index_output = torch.max(last_output,1)
             _, index_target = torch.max(last_target, 1)
+            BCE = criterionNLL(last_output, index_target).data
+            # print("bce",BCE)
+            L1 = criterionL1(last_output, last_target).data
         else:
             _, index_target = torch.max(targ, 2)
             BCE = criterionNLL(output.view(-1, 3), index_target.view(-1)).data
