@@ -57,8 +57,13 @@ parser.add_argument('--plot', action='store_true',
                     help='plot confusion matrix')
 parser.add_argument('--last', action='store_true',
                     help='plot confusion matrix')
+parser.add_argument('--pre', action='store_true',
+                    help='use preprocessed data')
 args = parser.parse_args()
 
+if args.pre:
+    args.data = "./data/2017_pre"
+    
 if args.last:
     dir_name = "LAST_WORD/"
 else:
@@ -395,7 +400,7 @@ optimizer = optim.Adagrad(model.parameters(), lr=LEARNING_RATE)
 # At any point you can hit Ctrl + C to break out of training early.
 try:
     exec_time = time.time()
-    path = "./confusion_matrixes/"+ dir_name + args.model + "_lr" + str(LEARNING_RATE) + "_lam_" + str(
+    path = "./confusion_matrixes/"+ dir_name + args.model + ("_pre" if args.pre else "") + "_lr" + str(LEARNING_RATE) + "_lam_" + str(
         lambdaL1) + "_btchsize_" + str(args.batch_size) + "_" + str(exec_time)[-3:] + "/"  # str(exec_time)
     
     begin_time = time.time()
