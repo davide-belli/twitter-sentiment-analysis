@@ -114,7 +114,7 @@ def batchify(data, bsz):
     data = data.view(bsz, -1).t().contiguous()
     if args.cuda:
         data = data.cuda()
-    print("batchified dims ",data.size(), " num batch ",nbatch)
+    # print("batchified dims ",data.size(), " num batch ",nbatch)
     return data
 
 def batchify_target(data, bsz):
@@ -129,8 +129,8 @@ def batchify_target(data, bsz):
     # print("batchified dims ",data.size(), " num batch ",nbatch)
     return data
 
-def shuffle_data():
-    corpus.shuffle_content()
+def shuffle_data(epoch):
+    corpus.shuffle_content(epoch)
     train_data = batchify(corpus.train, args.batch_size)
     train_data_t = batchify_target(corpus.train_t, args.batch_size)
     return train_data, train_data_t
@@ -416,7 +416,7 @@ try:
         
         if args.shuffle:
             # print("...shuffling")
-            train_data, train_data_t = shuffle_data()
+            train_data, train_data_t = shuffle_data(epoch)
             # print("...shuffled!")
             
         epoch_start_time = time.time()

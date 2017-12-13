@@ -80,9 +80,10 @@ class Corpus(object):
         return ids, targets, tweet_amount, tweet_len, weights
     
     
-    def shuffle_content(self):
+    def shuffle_content(self, epoch):
         l=self.tweet_len
         idx = np.arange(self.train_len)
+        np.random.seed(epoch)
         np.random.shuffle(idx)
         new_train = torch.LongTensor(self.train_len * self.tweet_len)
         new_train_t = torch.FloatTensor(self.train_len * self.tweet_len, 3)
