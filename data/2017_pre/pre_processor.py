@@ -3,25 +3,9 @@ import string
 from nltk.tokenize import TweetTokenizer
 
 def find_emoticons(sentence):
-    smile_emoticons_str = r"""
-        (?:
-            [:=;] # Eyes
-            [oO\-]? # Nose (optional)
-            [D\)\]] # Mouth
-        )"""
-
-    sad_emoticons_str = r"""
-        (?:
-            [:=;] # Eyes
-            [oO\-']? # Nose (optional)
-            [\(\[\|] # Mouth
-        )"""
-    funny_emoticons_str = r"""
-        (?:
-            [:=;] # Eyes
-            [oO\-]? # Nose (optional)
-            [OpP] # Mouth
-        )"""
+    smile_emoticons_str = r"""(?:[:=;][oO\-]?[D\)\]])"""
+    sad_emoticons_str = r"""(?:[:=;][oO\-']?[\(\[\|])"""
+    funny_emoticons_str = r"""(?:[:=;@][oO\-]?[Oo0pP])"""
     sentence = re.sub(smile_emoticons_str, "<smile>", sentence)
     sentence = re.sub(sad_emoticons_str, "<sad>", sentence)
     sentence = re.sub(funny_emoticons_str, "<funny>", sentence)
@@ -34,14 +18,14 @@ def preprocess(inp, output):
     printable = set(string.printable)
     tknzr = TweetTokenizer(reduce_len=True)
     
-    with open('./'+inp, 'r') as f:
+    with open('./'+inp, 'r', encoding='utf-8') as f:
         for line in f:
             target, tmp = line.strip().split("|_|")
             tmp = tmp.lower()
             tmp = "".join(filter(lambda x: x in printable, tmp))
             tmp = re.sub("https?:?//[\w/.]+", "<URL>", tmp)
             tmp = find_emoticons(tmp)
-            tmp = re.sub('[\-_"#@(),!*;:.]', " ", tmp)
+            tmp = re.sub('[\-_"#@(),!*;:.~\[\]]', " ", tmp)
             tmp = tmp.replace("?", "")
             # tmp = tmp.replace("/", "")
             tmp = tmp.replace("&", "")
@@ -57,7 +41,7 @@ def preprocess(inp, output):
             targets.append(target)
             sentences.append(tmp)
     
-    with open('./'+output, 'w') as f:
+    with open('./'+output, 'w', encoding='utf-8') as f:
         for i in range(len(targets)):
             f.write(targets[i]+"|_|"+sentences[i]+"\n")
       
