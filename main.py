@@ -18,10 +18,10 @@ parser = argparse.ArgumentParser(description='PyTorch Sentiment Analysis RNN/LST
 parser.add_argument('--data', type=str, default='./data/2017',
                     help='location of the data corpus')
 parser.add_argument('--model', type=str, default='LSTM',
-                    help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU, LSTM_BIDIR, LSTM_REV, RAN)')
-parser.add_argument('--emsize', type=int, default=200,
+                    help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU, LSTM_BIDIR, LSTM_REV, RAN, RAN_BIDIR)')
+parser.add_argument('--emsize', type=int, default=300,
                     help='size of word embeddings')
-parser.add_argument('--nhid', type=int, default=200,
+parser.add_argument('--nhid', type=int, default=100,
                     help='number of hidden units per layer')
 parser.add_argument('--nlayers', type=int, default=2,
                     help='number of layers')
@@ -59,6 +59,10 @@ parser.add_argument('--last', action='store_true',
                     help='plot confusion matrix')
 parser.add_argument('--pre', action='store_true',
                     help='use preprocessed data')
+parser.add_argument('--pause', action='store_true',
+                    help='not optimise embeddings for the first 5 epochs')
+parser.add_argument('--init_google', action='store_true',
+                    help='initialize embeddings from google')
 args = parser.parse_args()
 
 if args.pre:
@@ -158,6 +162,9 @@ if args.model == "LSTM_BIDIR":
                                   args.dropout, args.tied)
 elif args.model == "RAN":
     model = base_model.RANModel(args.model, ntokens, args.emsize, args.nhid, 1, args.dropout, args.tied)
+elif args.model == "RAN_BIDIR":
+    model = bi_model.BI_RANModel(args.model, ntokens, args.emsize, args.nhid, args.nreduced, 1,
+                                  args.dropout, args.tied)
 
 else:
     model = base_model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied)
@@ -170,9 +177,14 @@ else:
     criterionNLLtrain = nn.NLLLoss(weight=corpus.train_weights)
     criterionNLLvalid = nn.NLLLoss(weight=corpus.valid_weights)
     criterionNLLtest = nn.NLLLoss(weight=corpus.test_weights)
-# criterionBCE = nn.BCELoss()
+criterionBCE = nn.BCELoss()
 criterionL1 = nn.L1Loss()
 
+if args.init_google:
+    model.init_emb(corpus.dictionary.word2idx)
+
+if args.pause:
+    model.encoder.weight.requires_grad = False
 
 ###############################################################################
 # Training code
@@ -283,6 +295,8 @@ def evaluate(data_source, targets, test=False):
 
     if args.model == "LSTM_BIDIR":
         hidden1, hidden2 = model.init_hidden(eval_batch_size)  # eval_batch_size)
+    elif args.model == "RAN_BIDIR":
+        hidden1, hidden2 = model.init_hidden(eval_batch_size)
     else:
         hidden = model.init_hidden(eval_batch_size)  # eval_batch_size)
 
@@ -292,6 +306,8 @@ def evaluate(data_source, targets, test=False):
         data, targ = get_batch(data_source, targets, i, evaluation=True)
 
         if args.model == "LSTM_BIDIR":
+            output, hidden1, hidden2 = model(data, hidden1, hidden2)
+        elif args.model == "RAN_BIDIR":
             output, hidden1, hidden2 = model(data, hidden1, hidden2)
         else:
             if args.model == "LSTM_REV":
@@ -314,6 +330,9 @@ def evaluate(data_source, targets, test=False):
         if args.model == "LSTM_BIDIR":
             hidden1 = repackage_hidden(hidden1)
             hidden2 = repackage_hidden(hidden2)
+        if args.model == "RAN_BIDIR":
+            hidden1 = repackage_hidden(hidden1)
+            hidden2 = repackage_hidden(hidden2)
         else:
             hidden = repackage_hidden(hidden)
 
@@ -334,7 +353,7 @@ def train():
     total_BCE = 0
     total_L1 = 0
     start_time = time.time()
-    if args.model == "LSTM_BIDIR":
+    if args.model == "LSTM_BIDIR" or args.model == "RAN_BIDIR":
         hidden1, hidden2 = model.init_hidden(args.batch_size)
     else:
         hidden = model.init_hidden(args.batch_size)
@@ -345,13 +364,13 @@ def train():
 
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
-        if args.model == "LSTM_BIDIR":
+        if args.model == "LSTM_BIDIR" or args.model == "RAN_BIDIR":
             hidden1 = repackage_hidden(hidden1)
             hidden2 = repackage_hidden(hidden2)
         else:
             hidden = repackage_hidden(hidden)
         model.zero_grad()
-        if args.model == "LSTM_BIDIR":
+        if args.model == "LSTM_BIDIR"  or args.model == "RAN_BIDIR":
             output, hidden1, hidden2 = model(data, hidden1, hidden2)
         else:
             if args.model == "LSTM_REV":
@@ -408,17 +427,25 @@ best_val_loss = None
 best_epoch = -1
 best_recall_epoch = -1
 best_fitness = 0
-optimizer = optim.Adagrad(model.parameters(), lr=LEARNING_RATE)
+if args.pause:
+    optimizer = optim.Adagrad(filter(lambda p: p.requires_grad, model.parameters()), lr=LEARNING_RATE)
+else:
+    optimizer = optim.Adagrad(model.parameters(), lr=LEARNING_RATE)
 
 # At any point you can hit Ctrl + C to break out of training early.
 try:
     exec_time = time.time()
     path = "./confusion_matrixes/" + dir_name + args.model + ("_pre" if args.pre else "") + "_lr" + str(
         LEARNING_RATE) + "_lam_" + str(
-        lambdaL1) + "_btchsize_" + str(args.batch_size) + "_" + str(exec_time)[-3:] + "/"  # str(exec_time)
+        lambdaL1) + "_btchsize_" + str(args.batch_size) + "_" + str(exec_time)[-3:] + "/" + (
+        "_pause" if args.pause else "") + ("google" if args.init_google else "") # str(exec_time)
 
     begin_time = time.time()
     for epoch in range(1, args.epochs + 1):
+        if args.pause:
+            if epoch > 30:
+                model.encoder.weight.requires_grad=True
+                optimizer = optim.Adagrad(model.parameters(), lr=LEARNING_RATE)
         epoch_start_time = time.time()
         train()
         val_loss = evaluate(val_data, val_data_t)  # evaluate(val_data)

@@ -4,6 +4,8 @@ from torch.nn import init
 from torch.autograd import Variable
 import numpy as np
 from ran import RAN
+import torchwordemb
+import gc
 
 
 class RNNModel(nn.Module):
@@ -46,6 +48,7 @@ class RNNModel(nn.Module):
         self.rnn_type = rnn_type
         self.nunits = nunits
         self.nlayers = nlayers
+
 
     def init_weights(self):
         initrange = 0.1
@@ -109,6 +112,7 @@ class RANModel(nn.Module):
                                  options are ['LSTM', 'GRU', 'RAN', 'RNN_TANH' or 'RNN_RELU']""")
             self.rnn = nn.RNN(emsize, nunits, nlayers, nonlinearity=nonlinearity, dropout=dropout)
         self.decoder = nn.Linear(nunits, 3)
+        self.softmax = nn.Softmax()
 
         # Optionally tie weights as in:
         # "Using the Output Embedding to Improve Language Models" (Press & Wolf 2016)
@@ -127,6 +131,9 @@ class RANModel(nn.Module):
         self.nunits = nunits
         self.nlayers = nlayers
 
+        self.ntoken = ntoken
+        self.emsize = emsize
+
     def init_weights(self):
         init.xavier_uniform(self.encoder.weight)
         self.decoder.bias.data.fill_(0)
@@ -137,7 +144,9 @@ class RANModel(nn.Module):
         output, hidden = self.rnn(emb, hidden)
         output = self.drop(output)
         decoded = self.decoder(output.view(output.size(0)*output.size(1), output.size(2)))
-        return decoded.view(output.size(0), output.size(1), decoded.size(1)), hidden
+        result_unscaled = self.softmax(decoded)
+        result = result_unscaled.view(output.size(0), output.size(1), decoded.size(1))
+        return result, hidden
 
     def init_hidden(self, bsz):
         weight = next(self.parameters()).data
@@ -146,3 +155,33 @@ class RANModel(nn.Module):
                     Variable(weight.new(self.nlayers, bsz, self.nunits).zero_()))
         else:
             return Variable(weight.new(self.nlayers, bsz, self.nunits).zero_())
+
+    def create_emb_matrix(self, vocabulary):
+        print('importing embeddings')
+        vocab, vec = torchwordemb.load_word2vec_bin("./GoogleNews-vectors-negative300.bin")
+        print('imported embeddings')
+
+        emb_mat = np.zeros((self.ntoken, self.emsize))
+
+        for word in vocabulary.keys():
+            if word in vocab:
+                emb_mat[vocabulary[word]] = vec[vocab[word]].numpy()
+            else:
+                emb_mat[vocabulary[word]] = np.random.normal(0, 1, self.emsize)
+
+        # hypotetically, the one for <unk>
+        #emb_mat[-1] = np.random.normal(0, 1, self.emb_size)
+
+        print('train matrices built')
+
+        del vec
+        del vocab
+        gc.collect()
+
+        print('garbage collected')
+
+        return emb_mat
+
+    def init_emb(self, vocabulary):
+        emb_mat = self.create_emb_matrix(vocabulary)
+        self.encoder.weight.data.copy_(torch.from_numpy(emb_mat))

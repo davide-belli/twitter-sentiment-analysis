@@ -1,25 +1,11 @@
 import re
+import string
+from nltk.tokenize import TweetTokenizer
 
 def find_emoticons(sentence):
-    smile_emoticons_str = r"""
-        (?:
-            [:=;] # Eyes
-            [oO\-]? # Nose (optional)
-            [D\)\]] # Mouth
-        )"""
-
-    sad_emoticons_str = r"""
-        (?:
-            [:=;] # Eyes
-            [oO\-']? # Nose (optional)
-            [\(\[\|] # Mouth
-        )"""
-    funny_emoticons_str = r"""
-        (?:
-            [:=;] # Eyes
-            [oO\-]? # Nose (optional)
-            [OpP] # Mouth
-        )"""
+    smile_emoticons_str = r"""(?:[:=;][oO\-]?[D\)\]])"""
+    sad_emoticons_str = r"""(?:[:=;][oO\-']?[\(\[\|])"""
+    funny_emoticons_str = r"""(?:[:=;@][oO\-]?[Oo0pP])"""
     sentence = re.sub(smile_emoticons_str, "<smile>", sentence)
     sentence = re.sub(sad_emoticons_str, "<sad>", sentence)
     sentence = re.sub(funny_emoticons_str, "<funny>", sentence)
@@ -29,29 +15,29 @@ def find_emoticons(sentence):
 def preprocess(inp, output):
     sentences=[]
     targets=[]
-    
-    with open('./'+inp, 'r') as f:
+    tknzr = TweetTokenizer(reduce_len=True)
+
+    with open('./'+inp, 'r', encoding='utf-8') as f:
         for line in f:
             target, tmp = line.strip().split("|_|")
             tmp = re.sub("https?:?//[\w/.]+", "<URL>", tmp)
             tmp = find_emoticons(tmp)
-            tmp = re.sub('[\-_"#@(),!*;:.]', " ", tmp)
+            tmp = re.sub('[\-_"#@(),!*;:.~\[\]]', " ", tmp)
             tmp = tmp.replace("?", "")
             tmp = tmp.replace("&", "")
-            tmp = tmp.replace("'s", "")
+            tmp = tmp.replace("'s ", " ")
             tmp = tmp.replace("&quot", "")
             tmp = tmp.replace("&amp", "")
             tmp = tmp.replace("'", " ")
             tmp = tmp.replace("\t", " ")
-            tmp_list = tmp.split()
-            tmp = " ".join(tmp_list)
+            tmp = tknzr.tokenize(tmp.lower())
             targets.append(target)
-            sentences.append(tmp)
-    
-    with open('./'+output, 'w') as f:
+            sentences.append(" ".join(tmp))
+
+    with open('./'+output, 'w', encoding='utf-8') as f:
         for i in range(len(targets)):
             f.write(targets[i]+"|_|"+sentences[i]+"\n")
-      
+
 train = 'original_train.txt'
 valid = 'original_valid.txt'
 test = 'original_test.txt'
