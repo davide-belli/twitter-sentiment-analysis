@@ -59,6 +59,8 @@ parser.add_argument('--last', action='store_true',
                     help='plot confusion matrix')
 parser.add_argument('--pre', action='store_true',
                     help='use preprocessed data')
+parser.add_argument('--shuffle', action='store_true',
+                    help='shuffle train data every epoch')
 args = parser.parse_args()
 
 if args.pre:
@@ -127,9 +129,15 @@ def batchify_target(data, bsz):
     # print("batchified dims ",data.size(), " num batch ",nbatch)
     return data
 
+def shuffle_data():
+    corpus.shuffle_content()
+    train_data = batchify(corpus.train, args.batch_size)
+    train_data_t = batchify_target(corpus.train_t, args.batch_size)
+    return train_data, train_data_t
+
 eval_batch_size = 10
 args.bptt=corpus.tweet_len
-print("batch size= ",args.batch_size," sequence size= ",args.bptt," tweets number= ",corpus.train.size(0)//corpus.tweet_len,"train len= ",corpus.train.size(0))
+print("batch size= ",args.batch_size," sequence size= ",args.bptt," tweets number= ",corpus.train.size(0)//corpus.tweet_len,"train len= ",corpus.train.size(0), "train len again= ", corpus.train_len)
 # print("corpus ",corpus.train_t)
 train_data = batchify(corpus.train, args.batch_size)
 val_data = batchify(corpus.valid, eval_batch_size)
@@ -405,9 +413,15 @@ try:
     
     begin_time = time.time()
     for epoch in range(1, args.epochs+1):
+        
+        if args.shuffle:
+            # print("...shuffling")
+            train_data, train_data_t = shuffle_data()
+            # print("...shuffled!")
+            
         epoch_start_time = time.time()
         train()
-        val_loss = evaluate(val_data, val_data_t)#evaluate(val_data)
+        val_loss = evaluate(val_data, val_data_t) #evaluate(val_data)
         fitness = recallFitness("validation")
         print('-' * 89)
         print('| end of epoch {:3d} | time: {:5.2f}s | loss*100 {:5.2f} | '
