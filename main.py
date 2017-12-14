@@ -63,6 +63,8 @@ parser.add_argument('--pause', action='store_true',
                     help='not optimise embeddings for the first 5 epochs')
 parser.add_argument('--init_google', action='store_true',
                     help='initialize embeddings from google')
+parser.add_argument('--shuffle', action='store_true',
+                    help='shuffle train data every epoch')
 args = parser.parse_args()
 
 if args.pre:
@@ -133,6 +135,12 @@ def batchify_target(data, bsz):
         data = data.cuda()
     # print("batchified dims ",data.size(), " num batch ",nbatch)
     return data
+
+def shuffle_data(epoch):
+    corpus.shuffle_content(epoch)
+    train_data = batchify(corpus.train, args.batch_size)
+    train_data_t = batchify_target(corpus.train_t, args.batch_size)
+    return train_data, train_data_t
 
 
 eval_batch_size = 10
@@ -437,15 +445,19 @@ try:
     exec_time = time.time()
     path = "./confusion_matrixes/" + dir_name + args.model + ("_pre" if args.pre else "") + "_lr" + str(
         LEARNING_RATE) + "_lam_" + str(
-        lambdaL1) + "_btchsize_" + str(args.batch_size) + "_" + str(exec_time)[-3:] + "/" + (
-        "_pause" if args.pause else "") + ("google" if args.init_google else "") # str(exec_time)
+        lambdaL1) + "_btchsize_" + str(args.batch_size) + "_" + str(exec_time)[-3:] + (
+        "_pause" if args.pause else "") + ("_google" if args.init_google else "") + ("_shuffle/" if args.shuffle else "/")# str(exec_time)
 
     begin_time = time.time()
     for epoch in range(1, args.epochs + 1):
         if args.pause:
-            if epoch > 30:
+            if epoch > 3:
                 model.encoder.weight.requires_grad=True
                 optimizer = optim.Adagrad(model.parameters(), lr=LEARNING_RATE)
+
+        if args.shuffle:
+            train_data, train_data_t = shuffle_data(epoch)
+
         epoch_start_time = time.time()
         train()
         val_loss = evaluate(val_data, val_data_t)  # evaluate(val_data)

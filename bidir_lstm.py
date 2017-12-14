@@ -4,6 +4,8 @@ from torch.autograd import Variable
 from ran import RAN
 from torch.nn import init
 import numpy as np
+import torchwordemb
+import gc
 
 
 class BI_LSTMModel(nn.Module):
@@ -174,3 +176,33 @@ class BI_RANModel(nn.Module):
 
         return Variable(weight.new(self.nlayers, bsz, self.nunits1).zero_()), \
                Variable(weight.new(self.nlayers, bsz, self.nunits2).zero_())
+
+    def create_emb_matrix(self, vocabulary):
+        print('importing embeddings')
+        vocab, vec = torchwordemb.load_word2vec_bin("./GoogleNews-vectors-negative300.bin")
+        print('imported embeddings')
+
+        emb_mat = np.zeros((self.ntoken, self.emsize))
+
+        for word in vocabulary.keys():
+            if word in vocab:
+                emb_mat[vocabulary[word]] = vec[vocab[word]].numpy()
+            else:
+                emb_mat[vocabulary[word]] = np.random.normal(0, 1, self.emsize)
+
+        # hypotetically, the one for <unk>
+        # emb_mat[-1] = np.random.normal(0, 1, self.emb_size)
+
+        print('train matrices built')
+
+        del vec
+        del vocab
+        gc.collect()
+
+        print('garbage collected')
+
+        return emb_mat
+
+    def init_emb(self, vocabulary):
+        emb_mat = self.create_emb_matrix(vocabulary)
+        self.encoder.weight.data.copy_(torch.from_numpy(emb_mat))

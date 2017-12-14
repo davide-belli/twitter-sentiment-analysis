@@ -78,6 +78,23 @@ class Corpus(object):
         print(path, "tweet_len: ", tweet_len, "tweet_amount ",tweet_amount, "classes", tot, "weightsNLL ",weights)
     
         return ids, targets, tweet_amount, tweet_len, weights
+
+    def shuffle_content(self, epoch):
+        l = self.tweet_len
+        idx = np.arange(self.train_len)
+        np.random.seed(epoch)
+        np.random.shuffle(idx)
+        new_train = torch.LongTensor(self.train_len * self.tweet_len)
+        new_train_t = torch.FloatTensor(self.train_len * self.tweet_len, 3)
+        for i in range(self.train_len):
+            for n in range(l):
+                new_train[l * i + n] = self.train[l * idx[i] + n]
+                new_train_t[l * i + n] = self.train_t[l * idx[i] + n]
+                # print("original ", self.train[l*idx[i]:l*idx[i]+l])
+                # print("shuffled ", new_train[l*i:l*i+l])
+                # input("Continue")
+        self.train = new_train
+        self.train_t = new_train_t
     
     
     
