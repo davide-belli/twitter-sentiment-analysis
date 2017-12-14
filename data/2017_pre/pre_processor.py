@@ -30,9 +30,10 @@ def preprocess(inp, output):
             tmp = tmp.replace("&amp", "")
             tmp = tmp.replace("'", " ")
             tmp = tmp.replace("\t", " ")
-            tmp = tknzr.tokenize(tmp.lower())
+            tmp = tknzr.tokenize(tmp)
             targets.append(target)
-            sentences.append(" ".join(tmp))
+            tem = " ".join(tmp)
+            sentences.append(tem.lower())
 
     with open('./'+output, 'w', encoding='utf-8') as f:
         for i in range(len(targets)):
