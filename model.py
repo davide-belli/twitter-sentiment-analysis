@@ -74,11 +74,12 @@ class RNNModel(nn.Module):
 
     def init_hidden(self, bsz):
         weight = next(self.parameters()).data
+        variance = 1
         if self.rnn_type == 'LSTM':
-            return (Variable(weight.new(self.nlayers, bsz, self.nunits).zero_()),
-                    Variable(weight.new(self.nlayers, bsz, self.nunits).zero_()))
+            return (Variable(weight.new(self.nlayers, bsz, self.nunits).normal_(0.0, variance)),#.zero_()),
+                    Variable(weight.new(self.nlayers, bsz, self.nunits).normal_(0.0, variance)))#.zero_()))
         else:
-            return Variable(weight.new(self.nlayers, bsz, self.nunits).zero_())
+            return Variable(weight.new(self.nlayers, bsz, self.nunits).normal_(0.0, variance))#.zero_())
 
 def reverse_input(x, dim):
     # rNpArr = np.flip(x.data.cpu().numpy(), dim).copy()
