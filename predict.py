@@ -6,7 +6,7 @@ from torch.autograd import Variable
 import data
 
 parser = argparse.ArgumentParser(description='PyTorch PennTreeBank RNN/LSTM Language Model')
-parser.add_argument('--data', type=str, default='./data',
+parser.add_argument('--data', type=str, default='./data/2017_pre',
                     help='location of the data corpus')
 parser.add_argument('--bptt', type=int, default=35,
                     help='sequence length')
@@ -36,9 +36,10 @@ def batchify(data, bsz):
         data = data.cuda()
     return data
 
-pred_batch_size=1
-tok, tweet_size = corpus.tokenize_sentence(args.tweet)
-tweet = batchify(tok,pred_batch_size)
+
+pred_batch_size = 1
+tok, tweet_size = corpus.tokenize_sentence(args.tweet.strip())
+tweet = batchify(tok, pred_batch_size)
 args.bptt = tweet_size
 
 
@@ -46,9 +47,19 @@ def get_batch(source, evaluation=False):
     data = Variable(source[0:args.bptt], volatile=evaluation)
     return data
 
+def decode(sentiment):
+    if np.argmax(sentiment.data.numpy()) == 0:
+        sentiment = "negative"
+    elif np.argmax(sentiment.data.numpy()) == 1:
+        sentiment = "neutral"
+    else:
+        sentiment = "positive"
+    return sentiment
+
+
 def predict(data_source):
     # Turn on evaluation mode which disables dropout.
-    
+
     with open('./model.pt', 'rb') as f:
         model = torch.load(f)
     model.eval()
@@ -56,7 +67,7 @@ def predict(data_source):
         model.cuda()
     else:
         model.cpu()
-    
+
     hidden = model.init_hidden(pred_batch_size)  # eval_batch_size)
     for i in range(0, data_source.size(0) - 1, args.bptt):
         data = get_batch(data_source, evaluation=True)
@@ -66,5 +77,10 @@ def predict(data_source):
         model.zero_grad()
     return output_flat
 
-sentiment = predict(tweet).view(-1,3)
-print("sentiment: ",sentiment)
+
+sentiment = predict(tweet).view(-1, 3)
+#print(sentiment)
+for ind, word in enumerate(args.tweet.split(" ")):
+    print(word, decode(sentiment[ind]), sentiment[ind])
+sentiment = decode(sentiment[-1])
+print("sentiment: ", sentiment)
