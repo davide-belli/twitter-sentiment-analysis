@@ -80,7 +80,13 @@ class RNNModel(nn.Module):
                     Variable(weight.new(self.nlayers, bsz, self.nunits).normal_(0.0, variance)))#.zero_()))
         else:
             return Variable(weight.new(self.nlayers, bsz, self.nunits).normal_(0.0, variance))#.zero_())
-
+    
+    
+    def init_emb_from_file(self, path):
+        emb_mat = np.genfromtxt(path)
+        self.encoder.weight.data.copy_(torch.from_numpy(emb_mat))
+    
+    
 def reverse_input(x, dim):
     # rNpArr = np.flip(x.data.cpu().numpy(), dim).copy()
     # rTensor = torch.from_numpy(rNpArr).cuda()
@@ -184,4 +190,8 @@ class RANModel(nn.Module):
 
     def init_emb(self, vocabulary):
         emb_mat = self.create_emb_matrix(vocabulary)
+        self.encoder.weight.data.copy_(torch.from_numpy(emb_mat))
+        
+    def init_emb_from_file(self, path):
+        emb_mat = np.genfromtxt(path)
         self.encoder.weight.data.copy_(torch.from_numpy(emb_mat))

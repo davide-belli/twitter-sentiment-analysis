@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import init
 from torch.nn._functions.rnn import Recurrent, StackedRNN
-
+import numpy as np
 
 class RAN(nn.Module):
 
@@ -41,6 +41,9 @@ class RAN(nn.Module):
         hidden, output = func(input, hidden, ((self.weights, self.biases), ))
         return output, hidden
 
+    def init_emb_from_file(self, path):
+        emb_mat = np.genfromtxt(path)
+        self.encoder.weight.data.copy_(torch.from_numpy(emb_mat))
 
 def RANCell(input, hidden, weights, biases):
     w_cx, w_ic, w_ix, w_fc, w_fx = weights

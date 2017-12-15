@@ -5,3 +5,6 @@ unused/
 models/
 confusion_matrixes/
 TODO.txt
+data/trained_emb*
+data/*.bin
+data/embeddings.csv

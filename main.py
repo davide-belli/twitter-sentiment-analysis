@@ -15,7 +15,7 @@ import model as base_model
 import bidir_lstm as bi_model
 
 parser = argparse.ArgumentParser(description='PyTorch Sentiment Analysis RNN/LSTM Language Model')
-parser.add_argument('--data', type=str, default='./data/2017',
+parser.add_argument('--data', type=str, default='./data/dataset/preprocessed/',
                     help='location of the data corpus')
 parser.add_argument('--model', type=str, default='LSTM',
                     help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU, LSTM_BIDIR, LSTM_REV, RAN, RAN_BIDIR)')
@@ -63,8 +63,8 @@ parser.add_argument('--pause', action='store_true',
                     help='not optimise embeddings for the first 5 epochs')
 parser.add_argument('--pause_value', type=int, default=0,
                     help='not optimise embeddings for the first 5 epochs')
-parser.add_argument('--init_google', action='store_true',
-                    help='initialize embeddings from google')
+parser.add_argument('--initial', type=str, default=None,
+                    help='path to embedding file. If not set they are initializzed randomly')
 parser.add_argument('--shuffle', action='store_true',
                     help='shuffle train data every epoch')
 args = parser.parse_args()
@@ -187,8 +187,9 @@ else:
 criterionBCE = nn.BCELoss()
 criterionL1 = nn.L1Loss()
 
-if args.init_google:
-    model.init_emb(corpus.dictionary.word2idx)
+if args.initial is not None:
+    model.init_emb_from_file(args.initial)
+    
 
 if args.pause:
     model.encoder.weight.requires_grad = False
@@ -437,7 +438,7 @@ try:
     path = "./confusion_matrixes/" + dir_name + args.model + ("_pre" if args.pre else "") + "_lr" + str(
         LEARNING_RATE) + "_lam_" + str(
         lambdaL1) + "_btchsize_" + str(args.batch_size) + "_" + str(exec_time)[-3:] + (
-        "_pause" if args.pause else "") + ("_google" if args.init_google else "") + ("_shuffle/" if args.shuffle else "/")# str(exec_time)
+        "_pause" if args.pause else "") + ("_embedd" if args.initial else "") + ("_shuffle/" if args.shuffle else "/")# str(exec_time)
 
     begin_time = time.time()
     for epoch in range(1, args.epochs + 1):

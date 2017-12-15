@@ -84,7 +84,10 @@ class BI_LSTMModel(nn.Module):
                 Variable(weight.new(self.nlayers, bsz, self.nunits1).zero_())), \
                (Variable(weight.new(self.nlayers, bsz, self.nunits2).zero_()),
                 Variable(weight.new(self.nlayers, bsz, self.nunits2).zero_()))
-
+    
+    def init_emb_from_file(self, path):
+        emb_mat = np.genfromtxt(path)
+        self.encoder.weight.data.copy_(torch.from_numpy(emb_mat))
 
 def reverse_input(x, dim):
     # rNpArr = np.flip(x.data.cpu().numpy(), dim).copy()
@@ -156,7 +159,7 @@ class BI_RANModel(nn.Module):
 
     def forward(self, inp, hidden1, hidden2):
         emb1 = self.drop(self.encoder(inp))
-        input_reverse = reverse_input(inp, 0)
+        input_reverse = reverse_input_nocuda(inp, 0)
         emb2 = self.drop(self.encoder(input_reverse))
         output1, hidden1 = self.rnn1(emb1, hidden1)
         output2, hidden2 = self.rnn2(emb2, hidden2)
@@ -164,7 +167,7 @@ class BI_RANModel(nn.Module):
         output2 = self.drop(output2)
         red1 = self.reducer1(output1)
         red2 = self.reducer2(output2)
-        red = red1 + reverse_input(red2, 0)
+        red = red1 + reverse_input_nocuda(red2, 0)
         decoded = self.decoder(red.view(red.size(0) * red.size(1), red.size(2)))
 
 
@@ -206,4 +209,8 @@ class BI_RANModel(nn.Module):
 
     def init_emb(self, vocabulary):
         emb_mat = self.create_emb_matrix(vocabulary)
+        self.encoder.weight.data.copy_(torch.from_numpy(emb_mat))
+        
+    def init_emb_from_file(self, path):
+        emb_mat = np.genfromtxt(path)
         self.encoder.weight.data.copy_(torch.from_numpy(emb_mat))
