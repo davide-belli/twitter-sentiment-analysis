@@ -21,21 +21,21 @@ python main.py --cuda --plot --epochs 100 --lr 0.01 --lamb 0.1 --model CNN --bat
 
 
 echo "RAN emb word"
-python main.py --cuda --plot --epochs 100 --lr 0.01 --lamb 0.1 --model RAN --batch_size 20 --pre_trained
+python main.py --cuda --plot --epochs 100 --lr 0.01 --lamb 0.1 --model RAN --batch_size 20 --initial ./data/embeddings.csv
 echo "RAN_BI emb word"
-python main.py --cuda --plot --epochs 100 --lr 0.01 --lamb 0.1 --model RAN_BIDIR --batch_size 20 --pre_trained
+python main.py --cuda --plot --epochs 100 --lr 0.01 --lamb 0.1 --model RAN_BIDIR --batch_size 20 --initial ./data/embeddings.csv
 echo "LSTM_BI emb word"
-python main.py --cuda --plot --epochs 100 --lr 0.01 --lamb 0.1 --model LSTM_BIDIR --batch_size 20 --pre_trained
+python main.py --cuda --plot --epochs 100 --lr 0.01 --lamb 0.1 --model LSTM_BIDIR --batch_size 20 --initial ./data/embeddings.csv
 echo "LSTM_REV emb word"
-python main.py --cuda --plot --epochs 100 --lr 0.01 --lamb 0.1 --model LSTM_REV --batch_size 20 --pre_trained
+python main.py --cuda --plot --epochs 100 --lr 0.01 --lamb 0.1 --model LSTM_REV --batch_size 20 --initial ./data/embeddings.csv
 echo "LSTM emb word"
-python main.py --cuda --plot --epochs 100 --lr 0.01 --lamb 0.1 --model LSTM --batch_size 20 --pre_trained
+python main.py --cuda --plot --epochs 100 --lr 0.01 --lamb 0.1 --model LSTM --batch_size 20 --initial ./data/embeddings.csv
 echo "GRU emb word"
-python main.py --cuda --plot --epochs 100 --lr 0.01 --lamb 0.1 --model GRU --batch_size 20 --pre_trained
+python main.py --cuda --plot --epochs 100 --lr 0.01 --lamb 0.1 --model GRU --batch_size 20 --initial ./data/embeddings.csv
 echo "RNN_TANH emb word"
-python main.py --cuda --plot --epochs 100 --lr 0.01 --lamb 0.1 --model RNN_TANH --batch_size 20 --pre_trained
+python main.py --cuda --plot --epochs 100 --lr 0.01 --lamb 0.1 --model RNN_TANH --batch_size 20 --initial ./data/embeddings.csv
 echo "CNN emb word"
-python main.py --cuda --plot --epochs 100 --lr 0.01 --lamb 0.1 --model CNN --batch_size 20 --pre_trained
+python main.py --cuda --plot --epochs 100 --lr 0.01 --lamb 0.1 --model CNN --batch_size 20 --initial ./data/embeddings.csv
 
 
 echo "RAN no_emb last"
@@ -57,18 +57,18 @@ python main.py --cuda --plot --epochs 1000 --lr 0.01 --lamb 0.1 --model CNN --ba
 
 
 echo "RAN nemb last"
-python main.py --cuda --plot --epochs 1000 --lr 0.01 --lamb 0.1 --model RAN --batch_size 100 --last --pre_trained
+python main.py --cuda --plot --epochs 1000 --lr 0.01 --lamb 0.1 --model RAN --batch_size 100 --last --initial ./data/embeddings.csv
 echo "RAN_BI emb last"
-python main.py --cuda --plot --epochs 1000 --lr 0.01 --lamb 0.1 --model RAN_BIDIR --batch_size 100 --last --pre_trained
+python main.py --cuda --plot --epochs 1000 --lr 0.01 --lamb 0.1 --model RAN_BIDIR --batch_size 100 --last --initial ./data/embeddings.csv
 echo "LSTM_BI emb last"
-python main.py --cuda --plot --epochs 1000 --lr 0.01 --lamb 0.1 --model LSTM_BIDIR --batch_size 100 --last --pre_trained
+python main.py --cuda --plot --epochs 1000 --lr 0.01 --lamb 0.1 --model LSTM_BIDIR --batch_size 100 --last --initial ./data/embeddings.csv
 echo "LSTM_REV emb last"
-python main.py --cuda --plot --epochs 1000 --lr 0.01 --lamb 0.1 --model LSTM_REV --batch_size 100 --last --pre_trained
+python main.py --cuda --plot --epochs 1000 --lr 0.01 --lamb 0.1 --model LSTM_REV --batch_size 100 --last --initial ./data/embeddings.csv
 echo "LSTM emb last"
-python main.py --cuda --plot --epochs 1000 --lr 0.01 --lamb 0.1 --model LSTM --batch_size 100 --last --pre_trained
+python main.py --cuda --plot --epochs 1000 --lr 0.01 --lamb 0.1 --model LSTM --batch_size 100 --last --initial ./data/embeddings.csv
 echo "GRU emb last"
-python main.py --cuda --plot --epochs 1000 --lr 0.01 --lamb 0.1 --model GRU --batch_size 100 --last --pre_trained
+python main.py --cuda --plot --epochs 1000 --lr 0.01 --lamb 0.1 --model GRU --batch_size 100 --last --initial ./data/embeddings.csv
 echo "RNN_TANH emb last"
-python main.py --cuda --plot --epochs 1000 --lr 0.01 --lamb 0.1 --model RNN_TANH --batch_size 100 --last --pre_trained
+python main.py --cuda --plot --epochs 1000 --lr 0.01 --lamb 0.1 --model RNN_TANH --batch_size 100 --last --initial ./data/embeddings.csv
 echo "CNN emb last"
-python main.py --cuda --plot --epochs 1000 --lr 0.01 --lamb 0.1 --model CNN --batch_size 100 --last --pre_trained
+python main.py --cuda --plot --epochs 1000 --lr 0.01 --lamb 0.1 --model CNN --batch_size 100 --last --initial ./data/embeddings.csv

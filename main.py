@@ -56,7 +56,7 @@ parser.add_argument('--recallsave', type=str, default='model_recall.pt',
 parser.add_argument('--plot', action='store_true',
                     help='plot confusion matrix')
 parser.add_argument('--last', action='store_true',
-                    help='plot confusion matrix')
+                    help='backpropagate at the end of a tweet')
 parser.add_argument('--pre', action='store_true',
                     help='use preprocessed data')
 parser.add_argument('--pause', action='store_true',
@@ -64,7 +64,7 @@ parser.add_argument('--pause', action='store_true',
 parser.add_argument('--pause_value', type=int, default=0,
                     help='not optimise embeddings for the first 5 epochs')
 parser.add_argument('--initial', type=str, default=None,
-                    help='path to embedding file. If not set they are initializzed randomly')
+                    help='path to embedding file. If not set they are initialized randomly')
 parser.add_argument('--shuffle', action='store_true',
                     help='shuffle train data every epoch')
 args = parser.parse_args()
