@@ -32,8 +32,10 @@ def read_data(fname, oname, padding=True):
     printable = set(string.printable)
     
     with open(fname, encoding='utf-8') as f:
-        f.readline()
+        
         for line in f.readlines():
+            if line.startswith('#'):
+                continue
             train_target, train_sentence = line.strip().split(None, 1)
             train_sentence = "".join(filter(lambda x: x in printable, train_sentence))
             train_data.append(train_sentence)
