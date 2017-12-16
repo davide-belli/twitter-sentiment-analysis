@@ -13,12 +13,14 @@ import os
 import data
 import model as base_model
 import bidir_lstm as bi_model
+import cnn
+
 
 parser = argparse.ArgumentParser(description='PyTorch Sentiment Analysis RNN/LSTM Language Model')
 parser.add_argument('--data', type=str, default='./data/dataset/preprocessed/',
                     help='location of the data corpus')
 parser.add_argument('--model', type=str, default='LSTM',
-                    help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU, LSTM_BIDIR, LSTM_REV, RAN, RAN_BIDIR)')
+                    help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU, LSTM_BIDIR, LSTM_REV, RAN, RAN_BIDIR, CNN)')
 parser.add_argument('--emsize', type=int, default=300,
                     help='size of word embeddings')
 parser.add_argument('--nhid', type=int, default=200,
@@ -29,7 +31,7 @@ parser.add_argument('--nreduced', type=int, default=30,
                     help='number of units in the reduced layer')
 parser.add_argument('--lr', type=float, default=0.01,
                     help='initial learning rate')
-parser.add_argument('--lamb', type=float, default=0.1,
+parser.add_argument('--lamb', type=float, default=0.01,
                     help='lambdaL1')
 parser.add_argument('--clip', type=float, default=0.25,
                     help='gradient clipping')
@@ -173,6 +175,8 @@ elif args.model == "RAN":
 elif args.model == "RAN_BIDIR":
     model = bi_model.BI_RANModel(args.model, ntokens, args.emsize, args.nhid, args.nreduced, 1,
                                   args.dropout, args.tied)
+elif args.model == 'CNN':
+    model = cnn.CNN(args.emsize, corpus.tweet_len, ntokens)
 else:
     model = base_model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied)
 if args.cuda:
@@ -282,12 +286,17 @@ def recallFitness(which_matrix):
 # by the batchify function. The chunks are along dimension 0, corresponding
 # to the seq_len dimension in the LSTM.
 
-def get_batch(source, targets, i, evaluation=False):
-    seq_len = min(args.bptt, len(source) - 1 - i)
-    data = Variable(source[i:i + seq_len], volatile=evaluation)
-    target = Variable(targets[i:i + seq_len, :].view(seq_len, -1, 3))
-    return data, target
+# def get_batch(source, targets, i, evaluation=False):
+#     seq_len = min(args.bptt, len(source) - i)
+#     data = Variable(source[i:i + seq_len], volatile=evaluation)
+#     target = Variable(targets[i:i + seq_len, :].view(seq_len, -1, 3))
+#     return data, target
 
+def get_batch(source, targets, i, evaluation=False):
+    seq_len = min(args.bptt, len(source) -i)
+    data = Variable(source[i:i + seq_len].view(args.bptt, -1), volatile=evaluation)
+    target = Variable(targets[i:i + seq_len, :].view(args.bptt, -1, 3))
+    return data, target
 
 def evaluate(data_source, targets, test=False):
     # Turn on evaluation mode which disables dropout.
@@ -299,18 +308,25 @@ def evaluate(data_source, targets, test=False):
     else:
         criterionNLL = criterionNLLvalid
 
-    if args.model in ["LSTM_BIDIR","RAN_BIDIR"]:
-        hidden1, hidden2 = model.init_hidden(eval_batch_size)  # eval_batch_size)
-    else:
-        hidden = model.init_hidden(eval_batch_size)  # eval_batch_size)
+    
 
     for i in range(0, data_source.size(0) - 1, args.bptt):
         # if len(data_source)-1-i< args.bptt:
         #     continue
-        data, targ = get_batch(data_source, targets, i, evaluation=True)
 
+            
+        data, targ = get_batch(data_source, targets, i, evaluation=True)
+        
+        if args.model in ["LSTM_BIDIR", "RAN_BIDIR"]:
+            hidden1, hidden2 = model.init_hidden(data.size(1))  # eval_batch_size)
+        elif args.model != 'CNN':
+            hidden = model.init_hidden(data.size(1))  # eval_batch_size)
+        
+            
         if args.model in ["LSTM_BIDIR","RAN_BIDIR"]:
             output, hidden1, hidden2 = model(data, hidden1, hidden2)
+        elif args.model == 'CNN':
+            output = model(data)
         else:
             if args.model == "LSTM_REV":
                 output, hidden = model(base_model.reverse_input(data, 0), hidden)
@@ -332,7 +348,7 @@ def evaluate(data_source, targets, test=False):
         if args.model in ["LSTM_BIDIR","RAN_BIDIR"]:
             hidden1 = repackage_hidden(hidden1)
             hidden2 = repackage_hidden(hidden2)
-        else:
+        elif args.model != 'CNN':
             hidden = repackage_hidden(hidden)
 
         model.zero_grad()
@@ -352,25 +368,33 @@ def train():
     total_BCE = 0
     total_L1 = 0
     start_time = time.time()
-    if args.model == "LSTM_BIDIR" or args.model == "RAN_BIDIR":
-        hidden1, hidden2 = model.init_hidden(args.batch_size)
-    else:
-        hidden = model.init_hidden(args.batch_size)
+    
+        
     for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
+    
+            
         # print("training........... ", train_data.size(0)," ", args.bptt)
         optimizer.zero_grad()
         data, targets = get_batch(train_data, train_data_t, i)
-
+        
+        if args.model == "LSTM_BIDIR" or args.model == "RAN_BIDIR":
+            hidden1, hidden2 = model.init_hidden(data.size(1))
+        elif args.model != 'CNN':
+            hidden = model.init_hidden(data.size(1))
+        
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
         if args.model == "LSTM_BIDIR" or args.model == "RAN_BIDIR":
             hidden1 = repackage_hidden(hidden1)
             hidden2 = repackage_hidden(hidden2)
-        else:
+        elif args.model != 'CNN':
             hidden = repackage_hidden(hidden)
+            
         model.zero_grad()
         if args.model == "LSTM_BIDIR"  or args.model == "RAN_BIDIR":
             output, hidden1, hidden2 = model(data, hidden1, hidden2)
+        elif args.model == 'CNN':
+            output = model(data)
         else:
             if args.model == "LSTM_REV":
                 output, hidden = model(base_model.reverse_input(data, 0), hidden)
@@ -428,9 +452,9 @@ best_epoch = -1
 best_recall_epoch = -1
 best_fitness = 0
 if args.pause:
-    optimizer = optim.Adagrad(filter(lambda p: p.requires_grad, model.parameters()), lr=LEARNING_RATE)
+    optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=LEARNING_RATE)
 else:
-    optimizer = optim.Adagrad(model.parameters(), lr=LEARNING_RATE)
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
 # At any point you can hit Ctrl + C to break out of training early.
 try:
