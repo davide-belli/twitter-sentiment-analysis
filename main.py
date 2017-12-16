@@ -39,7 +39,7 @@ parser.add_argument('--batch_size', type=int, default=20, metavar='N',
                     help='batch size')
 parser.add_argument('--bptt', type=int, default=35,
                     help='sequence length')
-parser.add_argument('--dropout', type=float, default=0.2,
+parser.add_argument('--dropout', type=float, default=0.5,
                     help='dropout applied to layers (0 = no dropout)')
 parser.add_argument('--tied', action='store_true',
                     help='tie the word embedding and softmax weights')
@@ -283,9 +283,9 @@ def recallFitness(which_matrix):
 # to the seq_len dimension in the LSTM.
 
 def get_batch(source, targets, i, evaluation=False):
-    seq_len = min(args.bptt, len(source) - 1 - i)
-    data = Variable(source[i:i + seq_len], volatile=evaluation)
-    target = Variable(targets[i:i + seq_len, :].view(seq_len, -1, 3))
+    seq_len = min(args.bptt, len(source) - i)
+    data = Variable(source[i:i + seq_len].view(args.bptt, -1), volatile=evaluation)
+    target = Variable(targets[i:i + seq_len, :].view(args.bptt, -1, 3))
     return data, target
 
 
@@ -299,15 +299,16 @@ def evaluate(data_source, targets, test=False):
     else:
         criterionNLL = criterionNLLvalid
 
-    if args.model in ["LSTM_BIDIR","RAN_BIDIR"]:
-        hidden1, hidden2 = model.init_hidden(eval_batch_size)  # eval_batch_size)
-    else:
-        hidden = model.init_hidden(eval_batch_size)  # eval_batch_size)
-
     for i in range(0, data_source.size(0) - 1, args.bptt):
+    
+        data, targ = get_batch(data_source, targets, i, evaluation=True)
+        if args.model in ["LSTM_BIDIR", "RAN_BIDIR"]:
+            hidden1, hidden2 = model.init_hidden(data.size(1))  # eval_batch_size)
+        else:
+            hidden = model.init_hidden(data.size(1))  # eval_batch_size)
         # if len(data_source)-1-i< args.bptt:
         #     continue
-        data, targ = get_batch(data_source, targets, i, evaluation=True)
+        
 
         if args.model in ["LSTM_BIDIR","RAN_BIDIR"]:
             output, hidden1, hidden2 = model(data, hidden1, hidden2)
@@ -352,14 +353,16 @@ def train():
     total_BCE = 0
     total_L1 = 0
     start_time = time.time()
-    if args.model == "LSTM_BIDIR" or args.model == "RAN_BIDIR":
-        hidden1, hidden2 = model.init_hidden(args.batch_size)
-    else:
-        hidden = model.init_hidden(args.batch_size)
+    
     for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
+        data, targets = get_batch(train_data, train_data_t, i)
+        if args.model == "LSTM_BIDIR" or args.model == "RAN_BIDIR":
+            hidden1, hidden2 = model.init_hidden(data.size(1))
+        else:
+            hidden = model.init_hidden(data.size(1))
         # print("training........... ", train_data.size(0)," ", args.bptt)
         optimizer.zero_grad()
-        data, targets = get_batch(train_data, train_data_t, i)
+        
 
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
@@ -462,13 +465,15 @@ try:
                                       val_loss * 100, fitness))
         print('-' * 89)
         # Save the model if the validation loss is the best we've seen so far.
+        if not os.path.exists(path):
+            os.makedirs(path)
         if not best_val_loss or val_loss < best_val_loss:
-            with open(args.save, 'wb') as f:
+            with open(path+args.save, 'wb') as f:
                 torch.save(model, f)
             best_val_loss = val_loss
             best_epoch = epoch
         if not best_fitness or fitness > best_fitness:
-            with open(args.recallsave, 'wb') as f:
+            with open(path+args.recallsave, 'wb') as f:
                 torch.save(model, f)
             best_fitness = fitness
             best_recall_epoch = epoch
@@ -493,7 +498,7 @@ print("The best recall is in Epoch: ", best_recall_epoch)
 ###############################################################################
 
 # Load the best saved model for fitness
-with open(args.save, 'rb') as f:
+with open(path+args.save, 'rb') as f:
     model = torch.load(f)
 
 test_loss = evaluate(test_data, test_data_t, test=True)
@@ -507,7 +512,7 @@ if args.plot:
 
 # Load the best saved model for recall
 test_confusion = np.reshape([[0 for i in range(3)] for j in range(3)], (3, 3))
-with open(args.recallsave, 'rb') as f:
+with open(path+args.recallsave, 'rb') as f:
     model = torch.load(f)
 
 # Run on test data.# Run on test data.
