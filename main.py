@@ -322,13 +322,13 @@ def evaluate(data_source, targets, test=False):
             last_target = targ[-1]
             _, index_target = torch.max(last_target, 1)
             BCE = criterionNLL(last_output, index_target).data
-            L1 = criterionL1(last_output, last_target).data
+            L1 = 0#criterionL1(last_output, last_target).data
         else:
             _, index_target = torch.max(targ, 2)
             BCE = criterionNLL(output.view(-1, 3), index_target.view(-1)).data
-            L1 = criterionL1(output, targ).data
+            L1 = 0#criterionL1(output, targ).data
 
-        total_loss += BCE + lambdaL1 * L1
+        total_loss += BCE #+ lambdaL1 * L1
 
         if args.model in ["LSTM_BIDIR","RAN_BIDIR"]:
             hidden1 = repackage_hidden(hidden1)
@@ -385,11 +385,11 @@ def train():
         if args.last:
             _, index_target = torch.max(last_target, 1)
             BCE = criterionNLLtrain(last_output, index_target)
-            L1 = criterionL1(last_output, last_target)
+            L1 = 0#criterionL1(last_output, last_target)
         else:
             _, index_target = torch.max(targets, 2)
             BCE = criterionNLLtrain(output.view(-1, 3), index_target.view(-1))
-            L1 = criterionL1(output, targets)
+            L1 = 0#criterionL1(output, targets)
         loss = BCE + lambdaL1 * L1
         loss.backward()
 
@@ -399,13 +399,13 @@ def train():
 
         total_loss += loss.data
         total_BCE += BCE.data
-        total_L1 += L1.data
+        total_L1 += 0#L1.data
         
 
         if batch % args.log_interval == 0 and batch > 0:
             cur_loss = total_loss[0] / args.log_interval
             cur_BCE = total_BCE[0] / args.log_interval
-            cur_L1 = total_L1[0] / args.log_interval
+            cur_L1 = 0#total_L1[0] / args.log_interval
             cur_recall = recallFitness("training") / args.log_interval
             elapsed = time.time() - start_time
             print('| epoch {:2d}| {:3d}/{:3d}| ms/btc {:4.2f}| '
@@ -431,9 +431,9 @@ best_epoch = -1
 best_recall_epoch = -1
 best_fitness = 0
 if args.pause:
-    optimizer = optim.Adagrad(filter(lambda p: p.requires_grad, model.parameters()), lr=LEARNING_RATE)
+    optimizer = optim.Adagrad(filter(lambda p: p.requires_grad, model.parameters()), lr=LEARNING_RATE, weight_decay=lambdaL1)
 else:
-    optimizer = optim.Adagrad(model.parameters(), lr=LEARNING_RATE)
+    optimizer = optim.Adagrad(model.parameters(), lr=LEARNING_RATE, weight_decay=lambdaL1)
 
 # At any point you can hit Ctrl + C to break out of training early.
 try:
@@ -448,7 +448,7 @@ try:
         if args.pause:
             if epoch > args.pause_value:
                 model.encoder.weight.requires_grad=True
-                optimizer = optim.Adagrad(model.parameters(), lr=LEARNING_RATE)
+                optimizer = optim.Adagrad(model.parameters(), lr=LEARNING_RATE, weight_decay  = lambdaL1)
 
         if args.shuffle:
             # print("...shuffling")
