@@ -31,8 +31,10 @@ parser.add_argument('--nreduced', type=int, default=30,
                     help='number of units in the reduced layer')
 parser.add_argument('--lr', type=float, default=0.01,
                     help='initial learning rate')
-parser.add_argument('--lamb', type=float, default=0.01,
+parser.add_argument('--lamb', type=float, default=0.1,
                     help='lambdaL1')
+parser.add_argument('--lrdecay', type=float, default=0.0,
+                    help='learning rate decay')
 parser.add_argument('--clip', type=float, default=0.25,
                     help='gradient clipping')
 parser.add_argument('--epochs', type=int, default=40,
@@ -41,7 +43,7 @@ parser.add_argument('--batch_size', type=int, default=20, metavar='N',
                     help='batch size')
 parser.add_argument('--bptt', type=int, default=35,
                     help='sequence length')
-parser.add_argument('--dropout', type=float, default=0.2,
+parser.add_argument('--dropout', type=float, default=0.5,
                     help='dropout applied to layers (0 = no dropout)')
 parser.add_argument('--tied', action='store_true',
                     help='tie the word embedding and softmax weights')
@@ -69,6 +71,7 @@ parser.add_argument('--initial', type=str, default=None,
                     help='path to embedding file. If not set they are initialized randomly')
 parser.add_argument('--shuffle', action='store_true',
                     help='shuffle train data every epoch')
+
 args = parser.parse_args()
 
 if args.pre:
@@ -188,8 +191,9 @@ else:
     criterionNLLtrain = nn.NLLLoss(weight=corpus.train_weights)
     criterionNLLvalid = nn.NLLLoss(weight=corpus.valid_weights)
     criterionNLLtest = nn.NLLLoss(weight=corpus.test_weights)
-criterionBCE = nn.BCELoss()
-criterionL1 = nn.L1Loss()
+
+#criterionBCE = nn.BCELoss()
+#criterionL1 = nn.L1Loss()
 
 if args.initial is not None:
     model.init_emb_from_file(args.initial)
@@ -286,17 +290,12 @@ def recallFitness(which_matrix):
 # by the batchify function. The chunks are along dimension 0, corresponding
 # to the seq_len dimension in the LSTM.
 
-# def get_batch(source, targets, i, evaluation=False):
-#     seq_len = min(args.bptt, len(source) - i)
-#     data = Variable(source[i:i + seq_len], volatile=evaluation)
-#     target = Variable(targets[i:i + seq_len, :].view(seq_len, -1, 3))
-#     return data, target
-
 def get_batch(source, targets, i, evaluation=False):
     seq_len = min(args.bptt, len(source) -i)
     data = Variable(source[i:i + seq_len].view(args.bptt, -1), volatile=evaluation)
     target = Variable(targets[i:i + seq_len, :].view(args.bptt, -1, 3))
     return data, target
+
 
 def evaluate(data_source, targets, test=False):
     # Turn on evaluation mode which disables dropout.
@@ -314,7 +313,7 @@ def evaluate(data_source, targets, test=False):
         # if len(data_source)-1-i< args.bptt:
         #     continue
 
-            
+        
         data, targ = get_batch(data_source, targets, i, evaluation=True)
         
         if args.model in ["LSTM_BIDIR", "RAN_BIDIR"]:
@@ -337,13 +336,13 @@ def evaluate(data_source, targets, test=False):
             last_target = targ[-1]
             _, index_target = torch.max(last_target, 1)
             BCE = criterionNLL(last_output, index_target).data
-            L1 = criterionL1(last_output, last_target).data
+            #L1 = criterionL1(last_output, last_target).data
         else:
             _, index_target = torch.max(targ, 2)
             BCE = criterionNLL(output.view(-1, 3), index_target.view(-1)).data
-            L1 = criterionL1(output, targ).data
+            #L1 = criterionL1(output, targ).data
 
-        total_loss += BCE + lambdaL1 * L1
+        total_loss += BCE #+ lambdaL1 * L1
 
         if args.model in ["LSTM_BIDIR","RAN_BIDIR"]:
             hidden1 = repackage_hidden(hidden1)
@@ -369,10 +368,10 @@ def train():
     total_L1 = 0
     start_time = time.time()
     
-        
+    
     for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
     
-            
+        
         # print("training........... ", train_data.size(0)," ", args.bptt)
         optimizer.zero_grad()
         data, targets = get_batch(train_data, train_data_t, i)
@@ -406,33 +405,35 @@ def train():
         if args.last:
             _, index_target = torch.max(last_target, 1)
             BCE = criterionNLLtrain(last_output, index_target)
-            L1 = criterionL1(last_output, last_target)
+            #L1 = criterionL1(last_output, last_target)
         else:
             _, index_target = torch.max(targets, 2)
             BCE = criterionNLLtrain(output.view(-1, 3), index_target.view(-1))
-            L1 = criterionL1(output, targets)
-        loss = BCE + lambdaL1 * L1
+            #L1 = criterionL1(output, targets)
+        loss = BCE #+ lambdaL1 * L1
         loss.backward()
 
-        # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
-        torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)
+        if args.model != 'CNN':
+            # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
+            torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)
+            
         optimizer.step()
 
         total_loss += loss.data
         total_BCE += BCE.data
-        total_L1 += L1.data
+        #total_L1 += L1.data
         
 
         if batch % args.log_interval == 0 and batch > 0:
             cur_loss = total_loss[0] / args.log_interval
             cur_BCE = total_BCE[0] / args.log_interval
-            cur_L1 = total_L1[0] / args.log_interval
+            #cur_L1 = total_L1[0] / args.log_interval
             cur_recall = recallFitness("training") / args.log_interval
             elapsed = time.time() - start_time
             print('| epoch {:2d}| {:3d}/{:3d}| ms/btc {:4.2f}| '
-                  'loss {:5.2f}| BCE {:4.2f}| L1 {:4.2f}| Rec {:3.4f} '.format(
+                  'loss {:5.2f}| BCE {:4.2f} | Rec {:3.4f} '.format(
                 epoch, batch, len(train_data) // args.bptt,
-                              elapsed * 1000 / args.log_interval, cur_loss, cur_BCE, cur_L1, cur_recall))
+                              elapsed * 1000 / args.log_interval, cur_loss, cur_BCE, cur_recall))
             total_loss = 0
             total_BCE = 0
             total_L1 = 0
@@ -451,25 +452,46 @@ best_val_loss = None
 best_epoch = -1
 best_recall_epoch = -1
 best_fitness = 0
+
+
+lr_decay = args.lrdecay
+opt_method = optim.Adagrad
+
 if args.pause:
-    optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=LEARNING_RATE)
+    optimizer = opt_method(filter(lambda p: p.requires_grad, model.parameters()), lr=LEARNING_RATE, weight_decay=lambdaL1, lr_decay=lr_decay)
 else:
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    optimizer = opt_method(model.parameters(), lr=LEARNING_RATE, weight_decay=lambdaL1, lr_decay=lr_decay)
 
 # At any point you can hit Ctrl + C to break out of training early.
 try:
     exec_time = time.time()
-    path = "./confusion_matrixes/" + dir_name + args.model + ("_pre" if args.pre else "") + "_lr" + str(
-        LEARNING_RATE) + "_lam_" + str(
-        lambdaL1) + "_btchsize_" + str(args.batch_size) + "_" + str(exec_time)[-3:] + (
-        "_pause" if args.pause else "") + ("_embedd" if args.initial else "") + ("_shuffle/" if args.shuffle else "/")# str(exec_time)
-
+    path = "./confusion_matrixes/" + dir_name + args.model +\
+           ("_pre" if args.pre else "") +\
+           "_lr" + str(LEARNING_RATE) +\
+           "_lam_" + str(lambdaL1) + \
+           "_lrdec_" + str(lr_decay) + \
+           "_btchsize_" + str(args.batch_size) +\
+           "_" + str(exec_time)[-3:] +\
+           ("_pause" if args.pause else "") +\
+           ("_embedd" if args.initial else "") +\
+           ("_shuffle/" if args.shuffle else "/")# str(exec_time)
+    
+    print('Path:', path)
+    
     begin_time = time.time()
+
+    val_loss = evaluate(val_data, val_data_t)  # evaluate(val_data)
+    fitness = recallFitness("validation")
+    print('-' * 89)
+    print('| Before starting | loss*100 {:5.2f} | '
+          'recall {:3.4f}'.format(val_loss * 100, fitness))
+    print('-' * 89)
+    
     for epoch in range(1, args.epochs + 1):
         if args.pause:
             if epoch > args.pause_value:
                 model.encoder.weight.requires_grad=True
-                optimizer = optim.Adagrad(model.parameters(), lr=LEARNING_RATE)
+                optimizer = opt_method(model.parameters(), lr=LEARNING_RATE, weight_decay=lambdaL1, lr_decay=lr_decay)
 
         if args.shuffle:
             # print("...shuffling")
@@ -486,13 +508,15 @@ try:
                                       val_loss * 100, fitness))
         print('-' * 89)
         # Save the model if the validation loss is the best we've seen so far.
+        if not os.path.exists(path):
+            os.makedirs(path)
         if not best_val_loss or val_loss < best_val_loss:
-            with open(args.save, 'wb') as f:
+            with open(path+args.save, 'wb') as f:
                 torch.save(model, f)
             best_val_loss = val_loss
             best_epoch = epoch
         if not best_fitness or fitness > best_fitness:
-            with open(args.recallsave, 'wb') as f:
+            with open(path+args.recallsave, 'wb') as f:
                 torch.save(model, f)
             best_fitness = fitness
             best_recall_epoch = epoch
@@ -517,7 +541,7 @@ print("The best recall is in Epoch: ", best_recall_epoch)
 ###############################################################################
 
 # Load the best saved model for fitness
-with open(args.save, 'rb') as f:
+with open(path+args.save, 'rb') as f:
     model = torch.load(f)
 
 test_loss = evaluate(test_data, test_data_t, test=True)
@@ -531,7 +555,7 @@ if args.plot:
 
 # Load the best saved model for recall
 test_confusion = np.reshape([[0 for i in range(3)] for j in range(3)], (3, 3))
-with open(args.recallsave, 'rb') as f:
+with open(path+args.recallsave, 'rb') as f:
     model = torch.load(f)
 
 # Run on test data.# Run on test data.

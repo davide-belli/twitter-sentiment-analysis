@@ -28,7 +28,8 @@ class RNNModel(nn.Module):
                 raise ValueError( """An invalid option for `--model` was supplied,
                                  options are ['LSTM', 'GRU', 'RNN_TANH' or 'RNN_RELU']""")
             self.rnn = nn.RNN(emsize, nunits, nlayers, nonlinearity=nonlinearity, dropout=dropout)
-        self.decoder = nn.Linear(nunits, 3)
+        self.decoder = nn.Linear(nunits, 30)
+        self.decoder2 = nn.Linear(30, 3)
         self.softmax = nn.Softmax()
         # self.decoder = nn.Linear(nunits, 1)
 
@@ -63,7 +64,8 @@ class RNNModel(nn.Module):
         # print("input ", input)
         # print("output ",output)
         output = self.drop(output)
-        decoded = self.decoder(output.view(output.size(0)*output.size(1), output.size(2)))
+        pre_decoded = self.decoder(output.view(output.size(0)*output.size(1), output.size(2)))
+        decoded = self.decoder2(pre_decoded)
         result_unscaled = self.softmax(decoded)
         result = result_unscaled.view(output.size(0), output.size(1), decoded.size(1))
         # print (result)
@@ -76,10 +78,10 @@ class RNNModel(nn.Module):
         weight = next(self.parameters()).data
         variance = 1
         if self.rnn_type == 'LSTM':
-            return (Variable(weight.new(self.nlayers, bsz, self.nunits).normal_(0.0, variance)),#.zero_()),
-                    Variable(weight.new(self.nlayers, bsz, self.nunits).normal_(0.0, variance)))#.zero_()))
+            return (Variable(weight.new(self.nlayers, bsz, self.nunits).zero_()),
+                    Variable(weight.new(self.nlayers, bsz, self.nunits).zero_()))
         else:
-            return Variable(weight.new(self.nlayers, bsz, self.nunits).normal_(0.0, variance))#.zero_())
+            return Variable(weight.new(self.nlayers, bsz, self.nunits).zero_())
     
     
     def init_emb_from_file(self, path):
@@ -117,7 +119,8 @@ class RANModel(nn.Module):
                 raise ValueError("""An invalid option for `--model` was supplied,
                                  options are ['LSTM', 'GRU', 'RAN', 'RNN_TANH' or 'RNN_RELU']""")
             self.rnn = nn.RNN(emsize, nunits, nlayers, nonlinearity=nonlinearity, dropout=dropout)
-        self.decoder = nn.Linear(nunits, 3)
+        self.decoder = nn.Linear(nunits, 30)
+        self.decoder2 = nn.Linear(30, 3)
         self.softmax = nn.Softmax()
 
         # Optionally tie weights as in:
@@ -149,7 +152,8 @@ class RANModel(nn.Module):
         emb = self.drop(self.encoder(input))
         output, hidden = self.rnn(emb, hidden)
         output = self.drop(output)
-        decoded = self.decoder(output.view(output.size(0)*output.size(1), output.size(2)))
+        pre_decoded = self.decoder(output.view(output.size(0) * output.size(1), output.size(2)))
+        decoded = self.decoder2(pre_decoded)
         result_unscaled = self.softmax(decoded)
         result = result_unscaled.view(output.size(0), output.size(1), decoded.size(1))
         return result, hidden
