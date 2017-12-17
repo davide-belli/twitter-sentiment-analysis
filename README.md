@@ -8,26 +8,35 @@ See experiment_final.sh for more examples
 
 ### Command line arguments description for 'main.py':
 
-* '--data'            default='./data/dataset/preprocessed/'        'location of the data corpus'
-* '--model'           default='LSTM'                               'current net (RNN_TANH, RNN_RELU, LSTM, GRU, LSTM_BIDIR, LSTM_REV, RAN, RAN_BIDIR, CNN)'
-* '--emsize'          default=300,                                 'size of word embeddings'
-* '--nhid'            default=200,                                 'number of hidden units per layer'
-* '--nlayers'         default=2,                                   'number of layers'
-* '--nreduced'        default=30,                                  'number of units in the reduced layer'
-* '--lr',             default=0.01,                                'initial learning rate'
-* '--lamb',           default=0.1,                                 'lambda for L2 regularization (weight decay)'
-* '--lrdecay',        default=0.0,                                 'learning rate decay parameter for Adagrad'
-* '--clip',           default=0.25,                                'gradient clipping'
-* '--epochs'          default=40,                                  'upper epoch limit'
-* '--batch_size'      default=20,                                  'batch size'
-* '--bptt'            default=35,                                  'sequence length'
-* '--dropout',        default=0.5,                                 'dropout applied to layers (0 = no dropout)'
-* '--seed'            default=1111,                                'random seed'
-* '--log-interval'    default=50,                                  'report interval'
-* '--save'            default='model.pt'                           'path to save the final model'
-* '--recallsave'      default='model_recall.pt'                    'path to save the final model'
-* '--pause_value'     default=0,                                   'not optimise embeddings for the first 5 epochs'
-* '--initial'         default=None,                                'path to embedding file. If not set they are initialized randomly'
+* '--data'            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default='./data/dataset/preprocessed/'        'location of the data corpus'
+* '--model'           &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default='LSTM'                               
+  1. RNN_TANH
+  2. RNN_RELU
+  3. LSTM
+  4. GRU
+  5. LSTM_BIDIR
+  6. LSTM_REV
+  7. RAN
+  8. RAN_BIDIR
+  9. CNN
+* '--emsize'          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default=300,                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'size of word embeddings'
+* '--nhid'            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default=200,                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'number of hidden units per layer'
+* '--nlayers'         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default=2,                                   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'number of layers'
+* '--nreduced'        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default=30,                                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'number of units in the reduced layer'
+* '--lr',             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default=0.01,                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'initial learning rate'
+* '--lamb',           &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default=0.1,                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'lambda for L2 regularization (weight decay)'
+* '--lrdecay',        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default=0.0,                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'learning rate decay parameter for Adagrad'
+* '--clip',           &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default=0.25,                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'gradient clipping'
+* '--epochs'          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default=40,                                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'upper epoch limit'
+* '--batch_size'      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default=20,                                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'batch size'
+* '--bptt'            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default=35,                                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'sequence length'
+* '--dropout',       &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default=0.5,                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'dropout applied to layers (0 = no dropout)'
+* '--seed'            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default=1111,                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'random seed'
+* '--log-interval'    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default=50,                                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'report interval'
+* '--save'            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default='model.pt'                           &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'path to save the final model'
+* '--recallsave'      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default='model_recall.pt'                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'path to save the final model'
+* '--pause_value'     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default=0,                                   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'not optimise embeddings for the first 5 epochs'
+* '--initial'         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default=None,                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'path to embedding file. If not set they are initialized randomly'
 
 ### Booleans
 * '--tied' = 'tie the word embedding and softmax weights'
