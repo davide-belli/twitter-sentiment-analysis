@@ -191,9 +191,8 @@ else:
     criterionNLLtrain = nn.NLLLoss(weight=corpus.train_weights)
     criterionNLLvalid = nn.NLLLoss(weight=corpus.valid_weights)
     criterionNLLtest = nn.NLLLoss(weight=corpus.test_weights)
-
-#criterionBCE = nn.BCELoss()
-#criterionL1 = nn.L1Loss()
+criterionBCE = nn.BCELoss()
+criterionL1 = nn.L1Loss()
 
 if args.initial is not None:
     model.init_emb_from_file(args.initial)
@@ -291,7 +290,7 @@ def recallFitness(which_matrix):
 # to the seq_len dimension in the LSTM.
 
 def get_batch(source, targets, i, evaluation=False):
-    seq_len = min(args.bptt, len(source) -i)
+    seq_len = min(args.bptt, len(source) - i)
     data = Variable(source[i:i + seq_len].view(args.bptt, -1), volatile=evaluation)
     target = Variable(targets[i:i + seq_len, :].view(args.bptt, -1, 3))
     return data, target
@@ -307,21 +306,17 @@ def evaluate(data_source, targets, test=False):
     else:
         criterionNLL = criterionNLLvalid
 
-    
-
     for i in range(0, data_source.size(0) - 1, args.bptt):
-        # if len(data_source)-1-i< args.bptt:
-        #     continue
-
-        
+    
         data, targ = get_batch(data_source, targets, i, evaluation=True)
-        
         if args.model in ["LSTM_BIDIR", "RAN_BIDIR"]:
             hidden1, hidden2 = model.init_hidden(data.size(1))  # eval_batch_size)
         elif args.model != 'CNN':
             hidden = model.init_hidden(data.size(1))  # eval_batch_size)
+        # if len(data_source)-1-i< args.bptt:
+        #     continue
         
-            
+
         if args.model in ["LSTM_BIDIR","RAN_BIDIR"]:
             output, hidden1, hidden2 = model(data, hidden1, hidden2)
         elif args.model == 'CNN':
@@ -336,11 +331,11 @@ def evaluate(data_source, targets, test=False):
             last_target = targ[-1]
             _, index_target = torch.max(last_target, 1)
             BCE = criterionNLL(last_output, index_target).data
-            #L1 = criterionL1(last_output, last_target).data
+            L1 = 0#criterionL1(last_output, last_target).data
         else:
             _, index_target = torch.max(targ, 2)
             BCE = criterionNLL(output.view(-1, 3), index_target.view(-1)).data
-            #L1 = criterionL1(output, targ).data
+            L1 = 0#criterionL1(output, targ).data
 
         total_loss += BCE #+ lambdaL1 * L1
 
@@ -368,19 +363,16 @@ def train():
     total_L1 = 0
     start_time = time.time()
     
-    
     for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
-    
-        
-        # print("training........... ", train_data.size(0)," ", args.bptt)
-        optimizer.zero_grad()
         data, targets = get_batch(train_data, train_data_t, i)
-        
         if args.model == "LSTM_BIDIR" or args.model == "RAN_BIDIR":
             hidden1, hidden2 = model.init_hidden(data.size(1))
         elif args.model != 'CNN':
             hidden = model.init_hidden(data.size(1))
+        # print("training........... ", train_data.size(0)," ", args.bptt)
+        optimizer.zero_grad()
         
+
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
         if args.model == "LSTM_BIDIR" or args.model == "RAN_BIDIR":
@@ -388,7 +380,6 @@ def train():
             hidden2 = repackage_hidden(hidden2)
         elif args.model != 'CNN':
             hidden = repackage_hidden(hidden)
-            
         model.zero_grad()
         if args.model == "LSTM_BIDIR"  or args.model == "RAN_BIDIR":
             output, hidden1, hidden2 = model(data, hidden1, hidden2)
@@ -405,12 +396,12 @@ def train():
         if args.last:
             _, index_target = torch.max(last_target, 1)
             BCE = criterionNLLtrain(last_output, index_target)
-            #L1 = criterionL1(last_output, last_target)
+            L1 = 0#criterionL1(last_output, last_target)
         else:
             _, index_target = torch.max(targets, 2)
             BCE = criterionNLLtrain(output.view(-1, 3), index_target.view(-1))
-            #L1 = criterionL1(output, targets)
-        loss = BCE #+ lambdaL1 * L1
+            L1 = 0#criterionL1(output, targets)
+        loss = BCE + lambdaL1 * L1
         loss.backward()
 
         if args.model != 'CNN':
@@ -421,19 +412,19 @@ def train():
 
         total_loss += loss.data
         total_BCE += BCE.data
-        #total_L1 += L1.data
+        total_L1 += 0#L1.data
         
 
         if batch % args.log_interval == 0 and batch > 0:
             cur_loss = total_loss[0] / args.log_interval
             cur_BCE = total_BCE[0] / args.log_interval
-            #cur_L1 = total_L1[0] / args.log_interval
+            cur_L1 = 0#total_L1[0] / args.log_interval
             cur_recall = recallFitness("training") / args.log_interval
             elapsed = time.time() - start_time
             print('| epoch {:2d}| {:3d}/{:3d}| ms/btc {:4.2f}| '
-                  'loss {:5.2f}| BCE {:4.2f} | Rec {:3.4f} '.format(
+                  'loss {:5.2f}| BCE {:4.2f}| L1 {:4.2f}| Rec {:3.4f} '.format(
                 epoch, batch, len(train_data) // args.bptt,
-                              elapsed * 1000 / args.log_interval, cur_loss, cur_BCE, cur_recall))
+                              elapsed * 1000 / args.log_interval, cur_loss, cur_BCE, cur_L1, cur_recall))
             total_loss = 0
             total_BCE = 0
             total_L1 = 0
@@ -479,14 +470,6 @@ try:
     print('Path:', path)
     
     begin_time = time.time()
-
-    val_loss = evaluate(val_data, val_data_t)  # evaluate(val_data)
-    fitness = recallFitness("validation")
-    print('-' * 89)
-    print('| Before starting | loss*100 {:5.2f} | '
-          'recall {:3.4f}'.format(val_loss * 100, fitness))
-    print('-' * 89)
-    
     for epoch in range(1, args.epochs + 1):
         if args.pause:
             if epoch > args.pause_value:
