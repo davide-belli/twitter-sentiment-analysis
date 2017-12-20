@@ -1,0 +1,6 @@
+./confusion_matrixes/EVERY_WORD/RNN_RELU_lr0.005_lam_0.0_btchsize_20_533/
+
+The best fitness is in Epoch: 7
+The best recall is in Epoch: 10
+
+| Best Recall Average | Total time 213.22  | Recall in Best Fitness 0.4548 | Recall in Best Recall 0.4469
