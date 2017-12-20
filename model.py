@@ -9,8 +9,6 @@ import gc
 
 
 class RNNModel(nn.Module):
-    """Container module with an encoder, a recurrent module, and a decoder."""
-
     def __init__(self, rnn_type, ntoken, emsize, nunits, nlayers, dropout=0.5, tie_weights=False):
     
         torch.manual_seed(1234)
@@ -31,14 +29,7 @@ class RNNModel(nn.Module):
         self.decoder = nn.Linear(nunits, 30)
         self.decoder2 = nn.Linear(30, 3)
         self.softmax = nn.Softmax()
-        # self.decoder = nn.Linear(nunits, 1)
 
-        # Optionally tie weights as in:
-        # "Using the Output Embedding to Improve Language Models" (Press & Wolf 2016)
-        # https://arxiv.org/abs/1608.05859
-        # and
-        # "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
-        # https://arxiv.org/abs/1611.01462
         if tie_weights:
             if nunits != emsize:
                 raise ValueError('When using the tied flag, nunits must be equal to emsize')
@@ -58,20 +49,12 @@ class RNNModel(nn.Module):
 
     def forward(self, input, hidden):
         emb = self.drop(self.encoder(input))
-        # print("emb",len(emb))
-        # print(emb)
         output, hidden = self.rnn(emb, hidden)
-        # print("input ", input)
-        # print("output ",output)
         output = self.drop(output)
         pre_decoded = self.decoder(output.view(output.size(0)*output.size(1), output.size(2)))
         decoded = self.decoder2(pre_decoded)
         result_unscaled = self.softmax(decoded)
         result = result_unscaled.view(output.size(0), output.size(1), decoded.size(1))
-        # print (result)
-        # scaled = self.softmax(result)
-        # print("decoded", decoded)
-        # print("result ", result)
         return result, hidden
 
     def init_hidden(self, bsz):
@@ -102,7 +85,6 @@ def reverse_input(x, dim):
 
 
 class RANModel(nn.Module):
-    """Container module with an encoder, a recurrent module, and a decoder."""
 
     def __init__(self, rnn_type, ntoken,  emsize, nunits, nlayers, dropout=0.5, tie_weights=False):
         super(RANModel, self).__init__()
@@ -122,13 +104,6 @@ class RANModel(nn.Module):
         self.decoder = nn.Linear(nunits, 30)
         self.decoder2 = nn.Linear(30, 3)
         self.softmax = nn.Softmax()
-
-        # Optionally tie weights as in:
-        # "Using the Output Embedding to Improve Language Models" (Press & Wolf 2016)
-        # https://arxiv.org/abs/1608.05859
-        # and
-        # "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
-        # https://arxiv.org/abs/1611.01462
         if tie_weights:
             if nunits != emsize:
                 raise ValueError('When using the tied flag, nhid must be equal to emsize')

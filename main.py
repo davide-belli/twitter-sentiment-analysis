@@ -93,7 +93,7 @@ if torch.cuda.is_available():
     else:
         torch.cuda.manual_seed(args.seed)
 
-LEARNING_RATE = args.lr  # 0.005
+LEARNING_RATE = args.lr 
 lambdaL1 = args.lamb
 
 ###############################################################################
@@ -102,10 +102,6 @@ lambdaL1 = args.lamb
 
 corpus = data.Corpus(args.data)
 
-# print("len of train corpus  ",len(corpus.train))
-# print(corpus.train[:20])
-# print(corpus.train_t[:20])
-# input("Press Enter to continue with batching...")
 
 # Starting from sequential data, batchify arranges the dataset into columns.
 # For instance, with the alphabet as the sequence and batch size 4, we'd get
@@ -128,7 +124,6 @@ def batchify(data, bsz):
     data = data.view(bsz, -1).t().contiguous()
     if args.cuda:
         data = data.cuda()
-    # print("batchified dims ",data.size(), " num batch ",nbatch)
     return data
 
 def batchify_target(data, bsz):
@@ -140,7 +135,6 @@ def batchify_target(data, bsz):
     data = data.view(bsz, -1, 3).transpose(0, 1).contiguous()
     if args.cuda:
         data = data.cuda()
-    # print("batchified dims ",data.size(), " num batch ",nbatch)
     return data
 
 def shuffle_data(epoch):
@@ -152,7 +146,6 @@ def shuffle_data(epoch):
 eval_batch_size = 10
 args.bptt = corpus.tweet_len
 print("batch size= ",args.batch_size," sequence size= ",args.bptt," tweets number= ",corpus.train.size(0)//corpus.tweet_len,"train len= ",corpus.train.size(0), "train len again= ", corpus.train_len)
-# print("corpus ",corpus.train_t)
 train_data = batchify(corpus.train, args.batch_size)
 val_data = batchify(corpus.valid, eval_batch_size)
 test_data = batchify(corpus.test, eval_batch_size)
@@ -217,7 +210,6 @@ def confusion_matrix(output, target, which_matrix):
     _, t = torch.max(target.view(-1, 3), 1)
     t = t.data.cpu().numpy()
     y = y.data.cpu().numpy()
-    # print("conf",t,y)
     assert len(t) == len(y), "target and output have different sizes"
     for i in range(len(t)):
         if which_matrix == "training":
@@ -331,11 +323,11 @@ def evaluate(data_source, targets, test=False):
             last_target = targ[-1]
             _, index_target = torch.max(last_target, 1)
             BCE = criterionNLL(last_output, index_target).data
-            L1 = 0#criterionL1(last_output, last_target).data
+            L1 = 0 #criterionL1(last_output, last_target).data
         else:
             _, index_target = torch.max(targ, 2)
             BCE = criterionNLL(output.view(-1, 3), index_target.view(-1)).data
-            L1 = 0#criterionL1(output, targ).data
+            L1 = 0 #criterionL1(output, targ).data
 
         total_loss += BCE #+ lambdaL1 * L1
 
@@ -369,7 +361,6 @@ def train():
             hidden1, hidden2 = model.init_hidden(data.size(1))
         elif args.model != 'CNN':
             hidden = model.init_hidden(data.size(1))
-        # print("training........... ", train_data.size(0)," ", args.bptt)
         optimizer.zero_grad()
         
 
@@ -396,11 +387,11 @@ def train():
         if args.last:
             _, index_target = torch.max(last_target, 1)
             BCE = criterionNLLtrain(last_output, index_target)
-            L1 = 0#criterionL1(last_output, last_target)
+            L1 = 0 #criterionL1(last_output, last_target)
         else:
             _, index_target = torch.max(targets, 2)
             BCE = criterionNLLtrain(output.view(-1, 3), index_target.view(-1))
-            L1 = 0#criterionL1(output, targets)
+            L1 = 0 #criterionL1(output, targets)
         loss = BCE + lambdaL1 * L1
         loss.backward()
 
@@ -418,7 +409,7 @@ def train():
         if batch % args.log_interval == 0 and batch > 0:
             cur_loss = total_loss[0] / args.log_interval
             cur_BCE = total_BCE[0] / args.log_interval
-            cur_L1 = 0#total_L1[0] / args.log_interval
+            cur_L1 = 0 #total_L1[0] / args.log_interval
             cur_recall = recallFitness("training") / args.log_interval
             elapsed = time.time() - start_time
             print('| epoch {:2d}| {:3d}/{:3d}| ms/btc {:4.2f}| '
@@ -477,9 +468,7 @@ try:
                 optimizer = opt_method(model.parameters(), lr=LEARNING_RATE, weight_decay=lambdaL1, lr_decay=lr_decay)
 
         if args.shuffle:
-            # print("...shuffling")
             train_data, train_data_t = shuffle_data(epoch)
-            # print("...shuffled!")
             
         epoch_start_time = time.time()
         train()

@@ -9,8 +9,6 @@ import gc
 
 
 class BI_LSTMModel(nn.Module):
-    """Container module with an encoder, a recurrent module, and a decoder."""
-
     def __init__(self, rnn_type, ntoken, emsize, nunits, nreduced, nlayers, dropout=0.5, tie_weights=False):
     
         torch.manual_seed(1234)
@@ -25,20 +23,6 @@ class BI_LSTMModel(nn.Module):
         self.reducer2 = nn.Linear(nunits, nreduced)
         self.decoder = nn.Linear(nreduced, 3)
         self.softmax = nn.Softmax()
-        # self.decoder = nn.Linear(nunits, 1)
-
-        # Optionally tie weights as in:
-        # "Using the Output Embedding to Improve Language Models" (Press & Wolf 2016)
-        # https://arxiv.org/abs/1608.05859
-        # and
-        # "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
-        # https://arxiv.org/abs/1611.01462
-        # if tie_weights:
-        #     if nunits != emsize:
-        #         raise ValueError('When using the tied flag, nunits must be equal to emsize')
-        #     self.decoder.weight = self.encoder.weight
-        #
-        # self.init_weights()
 
         self.rnn_type = rnn_type
         self.nunits1 = nunits
@@ -56,12 +40,8 @@ class BI_LSTMModel(nn.Module):
         emb1 = self.drop(self.encoder(inp))
         input_reverse = reverse_input(inp, 0)
         emb2 = self.drop(self.encoder(input_reverse))
-        # print("emb",len(emb))
-        # print(hidden1)
         output1, hidden1 = self.rnn1(emb1, hidden1)
         output2, hidden2 = self.rnn2(emb2, hidden2)
-        # print("input ", input)
-        # print("output ",output)
         output1 = self.drop(output1)
         output2 = self.drop(output2)
 
@@ -72,10 +52,6 @@ class BI_LSTMModel(nn.Module):
         decoded = self.decoder(red.view(red.size(0) * red.size(1), red.size(2)))
         result_unscaled = self.softmax(decoded)
         result = result_unscaled.view(red.size(0), red.size(1), decoded.size(1))
-        # print (result)
-        # scaled = self.softmax(result)
-        # print("decoded", decoded)
-        # print("result ", result)
         return result, hidden1, hidden2
 
     def init_hidden(self, bsz):
@@ -113,7 +89,6 @@ def reverse_input_nocuda(x, dim):
 
 
 class BI_RANModel(nn.Module):
-    """Container module with an encoder, a recurrent module, and a decoder."""
 
     def __init__(self, rnn_type, ntoken, emsize, nunits, nreduced, nlayers, dropout=0.5, tie_weights=False):
         super(BI_RANModel, self).__init__()
@@ -129,13 +104,6 @@ class BI_RANModel(nn.Module):
 
         self.decoder = nn.Linear(nreduced, 3)
         self.softmax = nn.Softmax()
-
-        # Optionally tie weights as in:
-        # "Using the Output Embedding to Improve Language Models" (Press & Wolf 2016)
-        # https://arxiv.org/abs/1608.05859
-        # and
-        # "Tying Word Vectors and Word Classifiers: A Loss Framework for Language Modeling" (Inan et al. 2016)
-        # https://arxiv.org/abs/1611.01462
         if tie_weights:
             if nunits != emsize:
                 raise ValueError('When using the tied flag, nhid must be equal to emsize')

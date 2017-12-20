@@ -11,11 +11,11 @@ def targetToFloat(target):
     # else:
     #     return [0, 1, 0], 1 #[0.0, 1.0, 0.0], 1
     if target == "positive":                              #Use Floats for BCELoss, Longs for CrossEntropyLoss
-        return [0.0, 0.0, 1.0], 2 #[0.0, 0.0, 1.0], 2
+        return [0.0, 0.0, 1.0], 2 
     elif target == "negative":
-        return [1.0, 0.0, 0.0],  0 #[1.0, 0.0, 0.0],  0
+        return [1.0, 0.0, 0.0],  0 
     else:
-        return [0.0, 1.0, 0.0], 1 #[0.0, 1.0, 0.0], 1
+        return [0.0, 1.0, 0.0], 1 
     
 class Dictionary(object):
     def __init__(self):
@@ -39,7 +39,6 @@ class Corpus(object):
         self.train, self.train_t, self.train_len, self.tweet_len, self.train_weights = self.tokenize_single(os.path.join(path, 'train.txt'))
         self.valid, self.valid_t, self.valid_len, self.tweet_len, self.valid_weights= self.tokenize_single(os.path.join(path, 'valid.txt'))
         self.test, self.test_t, self.test_len, self.tweet_len, self.test_weights = self.tokenize_single(os.path.join(path, 'test.txt'))
-        # self.train, self.train_t, self.valid, self.valid_t, self.test, self.test_t, self.train_len, self.valid_len, self.test_len, self.tweet_len= self.tokenize(os.path.join(path, 'dataset.txt'))
 
     def tokenize_single(self, path):
         assert os.path.exists(path)
@@ -75,7 +74,7 @@ class Corpus(object):
                     
         tot = targets.sum(0)
         weights = tot.sum()/tot
-        print(path, "tweet_len: ", tweet_len, "tweet_amount ",tweet_amount, "classes", tot) #, "weightsNLL ",weights)
+        print(path, "tweet_len: ", tweet_len, "tweet_amount ",tweet_amount, "classes", tot) 
     
         return ids, targets, tweet_amount, tweet_len, weights
     
@@ -91,9 +90,6 @@ class Corpus(object):
             for n in range(l):
                 new_train[l * i + n] = self.train[l * idx[i] + n]
                 new_train_t[l * i + n] = self.train_t[l * idx[i] + n]
-            # print("original ", self.train[l*idx[i]:l*idx[i]+l])
-            # print("shuffled ", new_train[l*i:l*i+l])
-            # input("Continue")
         self.train = new_train
         self.train_t = new_train_t
         
