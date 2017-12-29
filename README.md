@@ -1,5 +1,10 @@
 # twitter-sentiment-analysis
 ### Comparing various Neural Models in Sentiment Analysis tasks on Twitter datasets
+Project for the course Natural Language Processing 1 @ University of Amsterdam
+
+[Paper](https://github.com/davide-belli/twitter-sentiment-analysis/blob/master/documents/language-models-twitter.pdf)
+
+
 
 ```
 python main.py --cuda --epochs 20 
