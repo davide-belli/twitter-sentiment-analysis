@@ -9,3 +9,6 @@ data/trained_emb*
 data/*.bin
 data/embeddings.csv
 data/pre_trained_embeddings.txt
+experiment_results/*/*/*
+!experiment_results/*/*/*.txt
+!experiment_results/*/*/*test*.png

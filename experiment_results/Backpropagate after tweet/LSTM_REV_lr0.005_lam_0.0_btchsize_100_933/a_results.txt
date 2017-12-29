@@ -1,0 +1,6 @@
+./confusion_matrixes/LAST_WORD/LSTM_REV_lr0.005_lam_0.0_btchsize_100_933/
+
+The best fitness is in Epoch: 33
+The best recall is in Epoch: 22
+
+| Best Recall Average | Total time 1259.17  | Recall in Best Fitness 0.4183 | Recall in Best Recall 0.4223

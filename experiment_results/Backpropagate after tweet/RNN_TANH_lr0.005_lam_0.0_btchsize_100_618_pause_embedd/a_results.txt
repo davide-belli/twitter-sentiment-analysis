@@ -1,0 +1,6 @@
+./confusion_matrixes/LAST_WORD/RNN_TANH_lr0.005_lam_0.0_btchsize_100_618_pause_embedd/
+
+The best fitness is in Epoch: 258
+The best recall is in Epoch: 222
+
+| Best Recall Average | Total time 769.91  | Recall in Best Fitness 0.4109 | Recall in Best Recall 0.4158

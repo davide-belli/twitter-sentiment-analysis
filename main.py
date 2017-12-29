@@ -13,12 +13,14 @@ import os
 import data
 import model as base_model
 import bidir_lstm as bi_model
+import cnn
+
 
 parser = argparse.ArgumentParser(description='PyTorch Sentiment Analysis RNN/LSTM Language Model')
 parser.add_argument('--data', type=str, default='./data/dataset/preprocessed/',
                     help='location of the data corpus')
 parser.add_argument('--model', type=str, default='LSTM',
-                    help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU, LSTM_BIDIR, LSTM_REV, RAN, RAN_BIDIR)')
+                    help='type of recurrent net (RNN_TANH, RNN_RELU, LSTM, GRU, LSTM_BIDIR, LSTM_REV, RAN, RAN_BIDIR, CNN)')
 parser.add_argument('--emsize', type=int, default=300,
                     help='size of word embeddings')
 parser.add_argument('--nhid', type=int, default=200,
@@ -31,6 +33,8 @@ parser.add_argument('--lr', type=float, default=0.01,
                     help='initial learning rate')
 parser.add_argument('--lamb', type=float, default=0.1,
                     help='lambdaL1')
+parser.add_argument('--lrdecay', type=float, default=0.0,
+                    help='learning rate decay')
 parser.add_argument('--clip', type=float, default=0.25,
                     help='gradient clipping')
 parser.add_argument('--epochs', type=int, default=40,
@@ -67,6 +71,7 @@ parser.add_argument('--initial', type=str, default=None,
                     help='path to embedding file. If not set they are initialized randomly')
 parser.add_argument('--shuffle', action='store_true',
                     help='shuffle train data every epoch')
+
 args = parser.parse_args()
 
 if args.pre:
@@ -88,7 +93,7 @@ if torch.cuda.is_available():
     else:
         torch.cuda.manual_seed(args.seed)
 
-LEARNING_RATE = args.lr  # 0.005
+LEARNING_RATE = args.lr 
 lambdaL1 = args.lamb
 
 ###############################################################################
@@ -97,10 +102,6 @@ lambdaL1 = args.lamb
 
 corpus = data.Corpus(args.data)
 
-# print("len of train corpus  ",len(corpus.train))
-# print(corpus.train[:20])
-# print(corpus.train_t[:20])
-# input("Press Enter to continue with batching...")
 
 # Starting from sequential data, batchify arranges the dataset into columns.
 # For instance, with the alphabet as the sequence and batch size 4, we'd get
@@ -123,7 +124,6 @@ def batchify(data, bsz):
     data = data.view(bsz, -1).t().contiguous()
     if args.cuda:
         data = data.cuda()
-    # print("batchified dims ",data.size(), " num batch ",nbatch)
     return data
 
 def batchify_target(data, bsz):
@@ -135,7 +135,6 @@ def batchify_target(data, bsz):
     data = data.view(bsz, -1, 3).transpose(0, 1).contiguous()
     if args.cuda:
         data = data.cuda()
-    # print("batchified dims ",data.size(), " num batch ",nbatch)
     return data
 
 def shuffle_data(epoch):
@@ -147,7 +146,6 @@ def shuffle_data(epoch):
 eval_batch_size = 10
 args.bptt = corpus.tweet_len
 print("batch size= ",args.batch_size," sequence size= ",args.bptt," tweets number= ",corpus.train.size(0)//corpus.tweet_len,"train len= ",corpus.train.size(0), "train len again= ", corpus.train_len)
-# print("corpus ",corpus.train_t)
 train_data = batchify(corpus.train, args.batch_size)
 val_data = batchify(corpus.valid, eval_batch_size)
 test_data = batchify(corpus.test, eval_batch_size)
@@ -173,6 +171,8 @@ elif args.model == "RAN":
 elif args.model == "RAN_BIDIR":
     model = bi_model.BI_RANModel(args.model, ntokens, args.emsize, args.nhid, args.nreduced, 1,
                                   args.dropout, args.tied)
+elif args.model == 'CNN':
+    model = cnn.CNN(args.emsize, corpus.tweet_len, ntokens)
 else:
     model = base_model.RNNModel(args.model, ntokens, args.emsize, args.nhid, args.nlayers, args.dropout, args.tied)
 if args.cuda:
@@ -210,7 +210,6 @@ def confusion_matrix(output, target, which_matrix):
     _, t = torch.max(target.view(-1, 3), 1)
     t = t.data.cpu().numpy()
     y = y.data.cpu().numpy()
-    # print("conf",t,y)
     assert len(t) == len(y), "target and output have different sizes"
     for i in range(len(t)):
         if which_matrix == "training":
@@ -304,7 +303,7 @@ def evaluate(data_source, targets, test=False):
         data, targ = get_batch(data_source, targets, i, evaluation=True)
         if args.model in ["LSTM_BIDIR", "RAN_BIDIR"]:
             hidden1, hidden2 = model.init_hidden(data.size(1))  # eval_batch_size)
-        else:
+        elif args.model != 'CNN':
             hidden = model.init_hidden(data.size(1))  # eval_batch_size)
         # if len(data_source)-1-i< args.bptt:
         #     continue
@@ -312,6 +311,8 @@ def evaluate(data_source, targets, test=False):
 
         if args.model in ["LSTM_BIDIR","RAN_BIDIR"]:
             output, hidden1, hidden2 = model(data, hidden1, hidden2)
+        elif args.model == 'CNN':
+            output = model(data)
         else:
             if args.model == "LSTM_REV":
                 output, hidden = model(base_model.reverse_input(data, 0), hidden)
@@ -322,18 +323,18 @@ def evaluate(data_source, targets, test=False):
             last_target = targ[-1]
             _, index_target = torch.max(last_target, 1)
             BCE = criterionNLL(last_output, index_target).data
-            L1 = criterionL1(last_output, last_target).data
+            L1 = 0 #criterionL1(last_output, last_target).data
         else:
             _, index_target = torch.max(targ, 2)
             BCE = criterionNLL(output.view(-1, 3), index_target.view(-1)).data
-            L1 = criterionL1(output, targ).data
+            L1 = 0 #criterionL1(output, targ).data
 
-        total_loss += BCE + lambdaL1 * L1
+        total_loss += BCE #+ lambdaL1 * L1
 
         if args.model in ["LSTM_BIDIR","RAN_BIDIR"]:
             hidden1 = repackage_hidden(hidden1)
             hidden2 = repackage_hidden(hidden2)
-        else:
+        elif args.model != 'CNN':
             hidden = repackage_hidden(hidden)
 
         model.zero_grad()
@@ -358,9 +359,8 @@ def train():
         data, targets = get_batch(train_data, train_data_t, i)
         if args.model == "LSTM_BIDIR" or args.model == "RAN_BIDIR":
             hidden1, hidden2 = model.init_hidden(data.size(1))
-        else:
+        elif args.model != 'CNN':
             hidden = model.init_hidden(data.size(1))
-        # print("training........... ", train_data.size(0)," ", args.bptt)
         optimizer.zero_grad()
         
 
@@ -369,11 +369,13 @@ def train():
         if args.model == "LSTM_BIDIR" or args.model == "RAN_BIDIR":
             hidden1 = repackage_hidden(hidden1)
             hidden2 = repackage_hidden(hidden2)
-        else:
+        elif args.model != 'CNN':
             hidden = repackage_hidden(hidden)
         model.zero_grad()
         if args.model == "LSTM_BIDIR"  or args.model == "RAN_BIDIR":
             output, hidden1, hidden2 = model(data, hidden1, hidden2)
+        elif args.model == 'CNN':
+            output = model(data)
         else:
             if args.model == "LSTM_REV":
                 output, hidden = model(base_model.reverse_input(data, 0), hidden)
@@ -385,27 +387,29 @@ def train():
         if args.last:
             _, index_target = torch.max(last_target, 1)
             BCE = criterionNLLtrain(last_output, index_target)
-            L1 = criterionL1(last_output, last_target)
+            L1 = 0 #criterionL1(last_output, last_target)
         else:
             _, index_target = torch.max(targets, 2)
             BCE = criterionNLLtrain(output.view(-1, 3), index_target.view(-1))
-            L1 = criterionL1(output, targets)
+            L1 = 0 #criterionL1(output, targets)
         loss = BCE + lambdaL1 * L1
         loss.backward()
 
-        # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
-        torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)
+        if args.model != 'CNN':
+            # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
+            torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)
+            
         optimizer.step()
 
         total_loss += loss.data
         total_BCE += BCE.data
-        total_L1 += L1.data
+        total_L1 += 0#L1.data
         
 
         if batch % args.log_interval == 0 and batch > 0:
             cur_loss = total_loss[0] / args.log_interval
             cur_BCE = total_BCE[0] / args.log_interval
-            cur_L1 = total_L1[0] / args.log_interval
+            cur_L1 = 0 #total_L1[0] / args.log_interval
             cur_recall = recallFitness("training") / args.log_interval
             elapsed = time.time() - start_time
             print('| epoch {:2d}| {:3d}/{:3d}| ms/btc {:4.2f}| '
@@ -430,30 +434,41 @@ best_val_loss = None
 best_epoch = -1
 best_recall_epoch = -1
 best_fitness = 0
+
+
+lr_decay = args.lrdecay
+opt_method = optim.Adagrad
+
 if args.pause:
-    optimizer = optim.Adagrad(filter(lambda p: p.requires_grad, model.parameters()), lr=LEARNING_RATE)
+    optimizer = opt_method(filter(lambda p: p.requires_grad, model.parameters()), lr=LEARNING_RATE, weight_decay=lambdaL1, lr_decay=lr_decay)
 else:
-    optimizer = optim.Adagrad(model.parameters(), lr=LEARNING_RATE)
+    optimizer = opt_method(model.parameters(), lr=LEARNING_RATE, weight_decay=lambdaL1, lr_decay=lr_decay)
 
 # At any point you can hit Ctrl + C to break out of training early.
 try:
     exec_time = time.time()
-    path = "./confusion_matrixes/" + dir_name + args.model + ("_pre" if args.pre else "") + "_lr" + str(
-        LEARNING_RATE) + "_lam_" + str(
-        lambdaL1) + "_btchsize_" + str(args.batch_size) + "_" + str(exec_time)[-3:] + (
-        "_pause" if args.pause else "") + ("_embedd" if args.initial else "") + ("_shuffle/" if args.shuffle else "/")# str(exec_time)
-
+    path = "./confusion_matrixes/" + dir_name + args.model +\
+           ("_pre" if args.pre else "") +\
+           "_lr" + str(LEARNING_RATE) +\
+           "_lam_" + str(lambdaL1) + \
+           "_lrdec_" + str(lr_decay) + \
+           "_btchsize_" + str(args.batch_size) +\
+           "_" + str(exec_time)[-3:] +\
+           ("_pause" if args.pause else "") +\
+           ("_embedd" if args.initial else "") +\
+           ("_shuffle/" if args.shuffle else "/")# str(exec_time)
+    
+    print('Path:', path)
+    
     begin_time = time.time()
     for epoch in range(1, args.epochs + 1):
         if args.pause:
             if epoch > args.pause_value:
                 model.encoder.weight.requires_grad=True
-                optimizer = optim.Adagrad(model.parameters(), lr=LEARNING_RATE)
+                optimizer = opt_method(model.parameters(), lr=LEARNING_RATE, weight_decay=lambdaL1, lr_decay=lr_decay)
 
         if args.shuffle:
-            # print("...shuffling")
             train_data, train_data_t = shuffle_data(epoch)
-            # print("...shuffled!")
             
         epoch_start_time = time.time()
         train()
