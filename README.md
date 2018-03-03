@@ -2,7 +2,7 @@
 ### Comparing various Neural Models in Sentiment Analysis tasks on Twitter datasets
 Project for the course Natural Language Processing 1 @ University of Amsterdam
 
-Davide Belli, [Gabriele Cesa](https://github.com/Gabri95), [Linda Petrini](https://github.com/LindaPetrini)
+[Davide Belli](https://github.com/davide-belli), [Gabriele Cesa](https://github.com/Gabri95), [Linda Petrini](https://github.com/LindaPetrini)
 
 [Paper](https://github.com/davide-belli/twitter-sentiment-analysis/blob/master/documents/language-models-twitter.pdf)
 
